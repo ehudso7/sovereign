@@ -116,7 +116,7 @@ Phases execute in strict order. No feature jumping. No shiny-object detours.
 
 ## Phase 4 — Agent Studio
 
-**Status**: Not started
+**Status**: Complete
 
 **Goal**: Users can define agents, not just view runs.
 

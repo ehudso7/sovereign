@@ -264,6 +264,29 @@ export async function agentRoutes(server: FastifyInstance): Promise<void> {
     },
   );
 
+  // GET /api/v1/agents/:agentId/versions/:versionId
+  server.get<{ Params: { agentId: string; versionId: string } }>(
+    "/api/v1/agents/:agentId/versions/:versionId",
+    { preHandler: [authenticate] },
+    async (request, reply) => {
+      const services = getServices();
+      const agentService = services.agentStudioForOrg(request.session!.orgId);
+      const result = await agentService.getVersion(
+        toAgentVersionId(request.params.versionId),
+        request.session!.orgId,
+      );
+
+      if (!result.ok) {
+        return reply.status(result.error.statusCode).send({
+          error: { code: result.error.code, message: result.error.message },
+          meta: meta(request.id),
+        });
+      }
+
+      return reply.status(200).send({ data: result.value, meta: meta(request.id) });
+    },
+  );
+
   // POST /api/v1/agents/:agentId/versions
   server.post<{ Params: { agentId: string } }>(
     "/api/v1/agents/:agentId/versions",
