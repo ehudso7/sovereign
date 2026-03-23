@@ -43,7 +43,7 @@ export class LocalAuthService implements AuthService {
 
   async signIn(email: string, _password?: string): Promise<Result<AuthResult>> {
     // In local mode, find or create user by email
-    let user = userStore.getByEmail(email);
+    const user = userStore.getByEmail(email);
     if (!user) {
       return err(AppError.unauthorized("User not found"));
     }

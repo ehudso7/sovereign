@@ -1,6 +1,17 @@
 # SOVEREIGN — Tasks
 
-## Current Sprint: Phase 2
+## Current Sprint: Phase 2 Remediation
+
+### Remediation — ESLint Baseline ✅
+- [x] Add eslint and typescript-eslint as project dependencies (root + packages/config)
+- [x] Rewrite packages/config/eslint.config.mjs for modern typescript-eslint v8+
+- [x] Create root eslint.config.mjs that delegates to shared config
+- [x] Remove broken per-package eslint configs (use root config via ESLint directory walk)
+- [x] Fix lint errors: prefer-const in auth.service.ts
+- [x] Fix lint warnings: replace console.log with logger/console.warn in api, workers, gateway
+- [x] Verify: pnpm turbo lint passes 19/19 packages with 0 errors 0 warnings
+- [x] Verify: pnpm turbo typecheck passes 19/19 packages
+- [x] Verify: pnpm turbo test passes 14/14 tasks (65 tests)
 
 ### Phase 0 — Control Documents ✅
 - [x] Create PRD.md

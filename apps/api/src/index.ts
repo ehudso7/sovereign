@@ -58,7 +58,7 @@ const start = async () => {
 
   try {
     await server.listen({ port, host });
-    console.log(`API server running on ${host}:${port} (auth: ${authMode})`);
+    server.log.info(`API server running on ${host}:${port} (auth: ${authMode})`);
   } catch (err) {
     server.log.error(err);
     process.exit(1);

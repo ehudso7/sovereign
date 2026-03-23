@@ -1,12 +1,12 @@
 // Browser worker entry point
 
 const start = async () => {
-  console.log('Browser worker starting...');
+  console.warn('Browser worker starting...');
   // TODO: Initialize browser worker and register tasks
 };
 
 const shutdown = async () => {
-  console.log('Browser worker shutting down...');
+  console.warn('Browser worker shutting down...');
   process.exit(0);
 };
 
