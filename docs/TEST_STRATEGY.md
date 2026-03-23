@@ -116,6 +116,18 @@
 - **Runner**: Vitest
 - **Location**: `apps/api/src/__tests__/services/memory-permissions.test.ts`
 
+### Memory Route Tests
+- **Scope**: Service-level contract tests for all 10 memory endpoints
+- **Runner**: Vitest with in-memory test repos
+- **Location**: `apps/api/src/__tests__/routes/memory-routes.test.ts`
+- **Coverage**: Create (validation, dedup, audit), list (filters, org scoping), search (text match, empty/whitespace rejection, kind filter, non-active exclusion), get (by ID, not-found, wrong-org), update (active-only, wrong-org, audit), redact (content replacement, not-found, wrong-org, audit), expire (status transition, not-found, wrong-org, audit), delete (soft-delete, not-found, wrong-org, audit), promote (episodic→procedural, link creation, original expiry, validation, wrong-org, audit), links (with/without links, not-found, wrong-org), retrieveForRun (readEnabled gating, status exclusions, kind filter, maxRetrievalCount, audit), writeEpisodicFromRun (episodic creation, source link, audit), org scoping cross-cutting
+
+### Memory Runtime Integration Tests (DB-Backed)
+- **Scope**: Proves runtime retrieval and episodic write behavior against real PostgreSQL
+- **Runner**: Vitest with real PostgreSQL
+- **Location**: `packages/db/src/__tests__/integration/memory-engine.test.ts` (runtime behavior section)
+- **Coverage**: Active-only retrieval, redacted/expired/deleted exclusion, kind filtering, episodic write with attribution, source_run link persistence, write→retrieve round-trip, cross-tenant runtime isolation
+
 ### Chaos Tests
 - **Scope**: Worker restart during runs, DB failover, network partition
 - **Approach**: Kill workers mid-run, verify recovery
