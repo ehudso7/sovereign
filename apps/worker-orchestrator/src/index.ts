@@ -1,12 +1,12 @@
 // Temporal worker orchestrator entry point
 
 const start = async () => {
-  console.log('Worker orchestrator starting...');
+  console.warn('Worker orchestrator starting...');
   // TODO: Initialize Temporal worker and register workflows/activities
 };
 
 const shutdown = async () => {
-  console.log('Worker orchestrator shutting down...');
+  console.warn('Worker orchestrator shutting down...');
   process.exit(0);
 };
 

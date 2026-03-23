@@ -1,12 +1,12 @@
 // MCP gateway entry point
 
 const start = async () => {
-  console.log('MCP gateway starting...');
+  console.warn('MCP gateway starting...');
   // TODO: Initialize MCP gateway and register tools/resources
 };
 
 const shutdown = async () => {
-  console.log('MCP gateway shutting down...');
+  console.warn('MCP gateway shutting down...');
   process.exit(0);
 };
 

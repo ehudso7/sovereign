@@ -19,7 +19,9 @@
     "db:seed": "pnpm --filter @sovereign/db seed"
   },
   "devDependencies": {
+    "eslint": "^10.1.0",
     "prettier": "^3.4.2",
-    "turbo": "^2.3.3"
+    "turbo": "^2.3.3",
+    "typescript-eslint": "^8.57.1"
   }
 }
