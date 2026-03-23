@@ -78,7 +78,7 @@
 
 ## Backlog
 
-### Phase 4 — Agent Studio (In Progress)
+### Phase 4 — Agent Studio ✅
 
 #### Data Layer
 - [x] Agent & AgentVersion entity types in @sovereign/core (entities.ts, types.ts)
@@ -92,23 +92,58 @@
 #### Service Layer
 - [x] PgAgentStudioService implementation (apps/api/src/services/agent-studio.service.ts)
 - [x] Service registry wiring with org-scoped factory (agentStudioForOrg)
-- [x] Lint: 19/19 (0 errors), Typecheck: 19/19, Tests: 14/14 (51 tests)
 
 #### API Routes
 - [x] Agent CRUD endpoints (GET/POST/PATCH/DELETE /api/v1/agents)
-- [x] Agent version endpoints (GET/POST/PATCH /api/v1/agents/:id/versions)
+- [x] Agent version endpoints (GET/POST/PATCH /api/v1/agents/:id/versions, GET .../versions/:versionId)
 - [x] Publish/unpublish endpoints (POST .../publish, POST .../unpublish)
 - [x] Input validation with Zod schemas (all endpoints)
 - [x] Route registration in API app
 - [x] In-memory test repos (TestAgentRepo, TestAgentVersionRepo)
-- [x] Unit tests for agent studio service (19 tests)
-- [x] Lint: 19/19 (0 errors), Typecheck: 19/19, Tests: 14/14 (70 tests)
 
 #### Web UI
-- [ ] Agent listing page
-- [ ] Agent creation form
-- [ ] Agent version editor
-- [ ] Publish/unpublish controls
+- [x] Agent listing page with status filter (apps/web/src/app/agents/page.tsx)
+- [x] Create agent form with project selector (apps/web/src/app/agents/new/page.tsx)
+- [x] Agent detail page with metadata edit, archive, unpublish (apps/web/src/app/agents/[agentId]/page.tsx)
+- [x] Create draft version form (apps/web/src/app/agents/[agentId]/versions/new/page.tsx)
+- [x] Version detail/editor with publish control (apps/web/src/app/agents/[agentId]/versions/[versionId]/page.tsx)
+- [x] Empty/loading/error/forbidden states on all pages
+- [x] Permission-aware UI (create/edit/publish/archive hidden for non-privileged roles)
+- [x] "Agents" nav link in AppShell
+
+#### Permission Model
+- [x] 5 agent permissions defined: agent:read, agent:create, agent:update, agent:publish, agent:archive
+- [x] Role mapping: org_owner/org_admin have all, others have read-only
+- [x] Permissions enforced in API route preHandlers
+- [x] Permission tests (11 tests proving all 5 roles)
+
+#### Audit Persistence
+- [x] 7 audit actions: agent.created, agent.updated, agent.archived, agent.unpublished, agent_version.created, agent_version.updated, agent_version.published
+- [x] Emitted by PgAgentStudioService on all state changes
+- [x] PostgreSQL integration tests prove durable persistence
+
+#### PostgreSQL Integration Tests
+- [x] Agent CRUD: create, getById, getBySlug, list with filters, update, delete (5 tests)
+- [x] Version CRUD: create with JSONB, list sorted, latest version, update (4 tests)
+- [x] Publish/unpublish: publish, single-published enforcement, unpublishAll (3 tests)
+- [x] Cross-tenant isolation: org B cannot see org A agents or versions (2 tests)
+- [x] Audit persistence: single event persistence, all 7 lifecycle actions (2 tests)
+
+#### Unit Tests
+- [x] Agent studio service: CRUD, cross-tenant, status filters, archived rejection, version lifecycle, publish validation, immutability, unpublish (19 tests)
+- [x] Permission model: all 5 roles x all 5 permissions (11 tests)
+
+#### Docs
+- [x] docs/API_SPEC.md updated with full agent endpoint docs and behavior rules
+- [x] docs/SECURITY.md updated with agent permission matrix
+- [x] TASKS.md updated
+
+#### Final Check Results
+- [x] Lint: 19/19 (0 errors, 4 pre-existing warnings)
+- [x] Typecheck: 19/19
+- [x] Build: 16/16
+- [x] Unit Tests: 14/14 (81 tests — 14 core + 67 api)
+- [x] Integration Tests: requires PostgreSQL (16 tests in agent-studio.test.ts)
 
 ### Phase 5–14
 _See ROADMAP.md for full phase details._

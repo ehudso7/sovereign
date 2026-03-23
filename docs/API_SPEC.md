@@ -116,32 +116,76 @@ Archive project.
 
 ## Agent Endpoints
 
+**Status: Implemented in Phase 4**
+
 ### GET /api/v1/agents
-List agents (filterable by project).
+List agents for the current org. Filterable by `?projectId=` and `?status=draft|published|archived`.
+- Auth: Bearer token required
+- Permission: `agent:read` (all roles)
 
 ### POST /api/v1/agents
-Create a new agent.
+Create a new agent in draft status.
+- Auth: Bearer token required
+- Permission: `agent:create` (org_owner, org_admin)
+- Body: `{ name, slug, projectId, description? }`
+- Validation: Zod schema, slug must match `^[a-z0-9-]+$`
 
 ### GET /api/v1/agents/:agentId
-Get agent details.
+Get agent details by ID.
+- Auth: Bearer token required
+- Permission: `agent:read`
 
 ### PATCH /api/v1/agents/:agentId
-Update agent.
+Update agent metadata (name, description). Rejects updates to archived agents (403 FORBIDDEN).
+- Auth: Bearer token required
+- Permission: `agent:update` (org_owner, org_admin)
+- Body: `{ name?, description? }`
 
 ### DELETE /api/v1/agents/:agentId
-Archive agent.
+Archive agent. Unpublishes all published versions first.
+- Auth: Bearer token required
+- Permission: `agent:archive` (org_owner, org_admin)
 
 ### GET /api/v1/agents/:agentId/versions
-List agent versions.
+List all versions for an agent, sorted by version descending.
+- Auth: Bearer token required
+- Permission: `agent:read`
+
+### GET /api/v1/agents/:agentId/versions/:versionId
+Get a specific agent version with full configuration.
+- Auth: Bearer token required
+- Permission: `agent:read`
 
 ### POST /api/v1/agents/:agentId/versions
-Create a new agent version.
+Create a new draft agent version. Version number auto-increments. New versions are created blank (not cloned from previous).
+- Auth: Bearer token required
+- Permission: `agent:update` (org_owner, org_admin)
+- Body: `{ instructions?, goals?, tools?, budget?, approvalRules?, memoryConfig?, schedule?, modelConfig? }`
+- Default modelConfig: `{ provider: "openai", model: "gpt-4o", temperature: 0.7, maxTokens: 4096 }`
+
+### PATCH /api/v1/agents/:agentId/versions/:versionId
+Update a draft version. Published versions are immutable (403 FORBIDDEN).
+- Auth: Bearer token required
+- Permission: `agent:update` (org_owner, org_admin)
+- Body: same fields as POST
 
 ### POST /api/v1/agents/:agentId/versions/:versionId/publish
-Publish an agent version.
+Publish a version. Validates instructions and modelConfig are present. Unpublishes any previously published version (single-published-version enforcement). Sets agent status to "published".
+- Auth: Bearer token required
+- Permission: `agent:publish` (org_owner, org_admin)
+- Rejects: archived agents (403), empty instructions (400), missing model config (400)
 
-### POST /api/v1/agents/:agentId/versions/:versionId/unpublish
-Unpublish an agent version.
+### POST /api/v1/agents/:agentId/unpublish
+Unpublish all versions for an agent. Sets agent status back to "draft".
+- Auth: Bearer token required
+- Permission: `agent:publish` (org_owner, org_admin)
+
+### Agent Studio Behavior Rules
+- **Published versions are immutable**: Once published, a version cannot be edited. Create a new version instead.
+- **Drafts are created blank**: New versions start empty, not cloned from the previous version.
+- **Single published version**: Only one version per agent can be published at a time. Publishing a new version automatically unpublishes the previous one.
+- **Archived agents**: Cannot be updated, cannot have versions published. Archiving unpublishes all versions.
+- **Unpublish**: Returns agent to draft status and marks all versions as unpublished.
 
 ## Run Endpoints
 

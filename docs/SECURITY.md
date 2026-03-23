@@ -35,11 +35,20 @@
 ### Role-Based Access Control (RBAC)
 | Role | Scope | Capabilities |
 |------|-------|-------------|
-| org_owner | org | Full access, billing, member management, role management, security, audit, all project CRUD |
-| org_admin | org | Member management, audit viewing, all project CRUD |
-| org_member | org | Read org, read projects |
-| org_billing_admin | org | Read org, manage billing, read projects |
-| org_security_admin | org | Read org, manage security, view audit, read projects |
+| org_owner | org | Full access, billing, member management, role management, security, audit, all project CRUD, all agent CRUD/publish/archive |
+| org_admin | org | Member management, audit viewing, all project CRUD, all agent CRUD/publish/archive |
+| org_member | org | Read org, read projects, read agents |
+| org_billing_admin | org | Read org, manage billing, read projects, read agents |
+| org_security_admin | org | Read org, manage security, view audit, read projects, read agents |
+
+#### Agent Studio Permissions (Phase 4)
+| Permission | org_owner | org_admin | org_member | org_billing_admin | org_security_admin |
+|------------|:---------:|:---------:|:----------:|:-----------------:|:------------------:|
+| agent:read | Y | Y | Y | Y | Y |
+| agent:create | Y | Y | - | - | - |
+| agent:update | Y | Y | - | - | - |
+| agent:publish | Y | Y | - | - | - |
+| agent:archive | Y | Y | - | - | - |
 
 Role hierarchy: `org_owner` > `org_admin` > `org_billing_admin` = `org_security_admin` > `org_member`
 
