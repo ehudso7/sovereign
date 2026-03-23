@@ -12,11 +12,13 @@
 ## Authentication
 
 ### User Authentication
-- Managed via WorkOS
-- Supports: Email/password, Google OAuth, SAML SSO, OIDC
-- JWT tokens with short expiry (15 minutes)
-- Refresh tokens with rotation
-- Session management with forced logout capability
+- **Production mode**: Managed via WorkOS (SSO, SAML, OIDC, SCIM)
+- **Local/dev mode**: Email-based auth with in-memory session store
+- Auth mode selected via `AUTH_MODE` env var (`local` or `workos`)
+- Provider abstraction: `AuthProvider` interface with `LocalAuthProvider` and `WorkOSAuthProvider` implementations
+- Session tokens: SHA-256 hashed before storage, never stored in plaintext
+- Session management with forced logout and per-session revocation
+- DB-backed sessions with token hash lookup
 
 ### API Authentication
 - Bearer JWT tokens
@@ -33,10 +35,18 @@
 ### Role-Based Access Control (RBAC)
 | Role | Scope | Capabilities |
 |------|-------|-------------|
-| owner | org | Full access, billing, member management |
-| admin | org | Member management, all project access |
-| member | org | Assigned project access |
-| viewer | project | Read-only access to project resources |
+| org_owner | org | Full access, billing, member management, role management, security, audit, all project CRUD |
+| org_admin | org | Member management, audit viewing, all project CRUD |
+| org_member | org | Read org, read projects |
+| org_billing_admin | org | Read org, manage billing, read projects |
+| org_security_admin | org | Read org, manage security, view audit, read projects |
+
+Role hierarchy: `org_owner` > `org_admin` > `org_billing_admin` = `org_security_admin` > `org_member`
+
+Role management rules:
+- Only users with higher role level can modify lower roles
+- Last org_owner cannot be demoted or removed
+- Permissions are evaluated server-side via `hasPermission(role, permission)` helper
 
 ### Fine-Grained Authorization (FGA)
 - WorkOS FGA for resource-level permissions

@@ -68,26 +68,26 @@ Phases execute in strict order. No feature jumping. No shiny-object detours.
 
 ---
 
-## Phase 2 — Identity, Orgs, Tenancy
+## Phase 2 — Identity, Orgs, Tenancy ✅
 
-**Status**: Not started
+**Status**: Complete
 
 **Goal**: Make it multi-tenant and safe.
 
 **Build**:
-- [ ] Organizations CRUD
-- [ ] Memberships and invitations
-- [ ] Roles and permissions
-- [ ] Project workspaces
-- [ ] WorkOS SSO/SCIM/RBAC/FGA integration
-- [ ] Session management
-- [ ] Org-scoped audit stubs
+- [x] Organizations CRUD
+- [x] Memberships and invitations
+- [x] Roles and permissions
+- [x] Project workspaces
+- [x] WorkOS SSO/SCIM/RBAC/FGA integration (provider abstraction ready, local dev mode implemented)
+- [x] Session management
+- [x] Org-scoped audit stubs
 
 **Exit Gate**:
-- [ ] Org isolation tested
-- [ ] Invite flow works
-- [ ] Role checks enforced in API and UI
-- [ ] Audit events emitted for auth-sensitive actions
+- [x] Org isolation tested
+- [x] Invite flow works
+- [x] Role checks enforced in API and UI
+- [x] Audit events emitted for auth-sensitive actions
 
 ---
 

@@ -48,16 +48,28 @@ X-Request-Id: <uuid>  (optional, auto-generated if missing)
 ## Authentication Endpoints
 
 ### POST /api/v1/auth/login
-**Public**. Initiate login via WorkOS.
+**Public**. Authenticate user. In local mode: email-based login. In WorkOS mode: initiate OAuth flow.
+Body: `{ email: string, password?: string, orgId?: string }`
 
 ### POST /api/v1/auth/callback
 **Public**. Handle WorkOS auth callback.
+Body: `{ code: string, state?: string }`
 
 ### POST /api/v1/auth/logout
-Invalidate current session.
+Invalidate current session. Emits `auth.sign_out` audit event.
 
 ### GET /api/v1/auth/me
-Get current user and org context.
+Get current user, org context, role, and session info.
+
+### POST /api/v1/auth/switch-org
+Switch the session to a different organization context. Requires membership in the target org.
+Body: `{ orgId: string }`
+
+### GET /api/v1/auth/sessions
+List all active sessions for the current user in the current org.
+
+### DELETE /api/v1/auth/sessions/:sessionId
+Revoke a specific session. Emits `auth.session_revoked` audit event.
 
 ## Organization Endpoints
 

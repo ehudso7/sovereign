@@ -48,3 +48,83 @@ export {
   // Date helpers
   toISODateString,
 } from "./types.js";
+
+// ---------------------------------------------------------------------------
+// Auth types (Phase 2)
+// ---------------------------------------------------------------------------
+
+export type {
+  SessionId,
+  MembershipId,
+  InvitationId,
+  OrgRole,
+  Permission,
+  Session,
+  AuthMode,
+  AuthUser,
+  AuthProvider,
+  AuthenticateParams,
+  CallbackParams,
+  AuthResult,
+  AuthConfig,
+} from "./auth.js";
+
+export {
+  toSessionId,
+  toMembershipId,
+  toInvitationId,
+  ORG_ROLES,
+  isValidRole,
+  roleLevel,
+  canManageRole,
+  permissionsForRole,
+  hasPermission,
+} from "./auth.js";
+
+// ---------------------------------------------------------------------------
+// Entity types (Phase 2)
+// ---------------------------------------------------------------------------
+
+export type {
+  User,
+  CreateUserInput,
+  Organization,
+  CreateOrgInput,
+  UpdateOrgInput,
+  Membership,
+  CreateMembershipInput,
+  Invitation,
+  CreateInvitationInput,
+  Project,
+  CreateProjectInput,
+  UpdateProjectInput,
+} from "./entities.js";
+
+// ---------------------------------------------------------------------------
+// Audit types (Phase 2)
+// ---------------------------------------------------------------------------
+
+export type {
+  AuditEventId,
+  AuditAction,
+  ActorType,
+  AuditEvent,
+  EmitAuditEventInput,
+  AuditEmitter,
+  AuditQueryParams,
+} from "./audit.js";
+
+export { toAuditEventId } from "./audit.js";
+
+// ---------------------------------------------------------------------------
+// Service interfaces (Phase 2)
+// ---------------------------------------------------------------------------
+
+export type {
+  AuthService,
+  UserService,
+  OrgService,
+  MembershipService,
+  InvitationService,
+  ProjectService,
+} from "./services.js";
