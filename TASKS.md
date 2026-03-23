@@ -78,8 +78,34 @@
 
 ## Backlog
 
-### Phase 4 — Agent Studio
-_Not started. Tasks will be expanded when Phase 4 begins._
+### Phase 4 — Agent Studio (In Progress)
+
+#### Data Layer
+- [x] Agent & AgentVersion entity types in @sovereign/core (entities.ts, types.ts)
+- [x] AgentStudioService interface in @sovereign/core (services.ts)
+- [x] Database migration 003_phase4_agents.sql (agents + agent_versions tables with RLS)
+- [x] AgentRepo and AgentVersionRepo interfaces (packages/db/src/repositories/types.ts)
+- [x] PgAgentRepo implementation (packages/db/src/repositories/pg-agent.repo.ts)
+- [x] PgAgentVersionRepo implementation with JSONB serialization (packages/db/src/repositories/pg-agent-version.repo.ts)
+- [x] DB package exports updated
+
+#### Service Layer
+- [x] PgAgentStudioService implementation (apps/api/src/services/agent-studio.service.ts)
+- [x] Service registry wiring with org-scoped factory (agentStudioForOrg)
+- [x] Lint: 19/19 (0 errors), Typecheck: 19/19, Tests: 14/14 (51 tests)
+
+#### API Routes
+- [ ] Agent CRUD endpoints (POST/GET/PUT/DELETE /api/v1/agents)
+- [ ] Agent version endpoints (POST/GET/PUT /api/v1/agents/:id/versions)
+- [ ] Publish/unpublish endpoints
+- [ ] Input validation with Zod schemas
+- [ ] Unit tests for agent studio service
+
+#### Web UI
+- [ ] Agent listing page
+- [ ] Agent creation form
+- [ ] Agent version editor
+- [ ] Publish/unpublish controls
 
 ### Phase 5–14
 _See ROADMAP.md for full phase details._
