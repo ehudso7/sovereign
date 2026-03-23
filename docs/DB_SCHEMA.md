@@ -25,6 +25,7 @@ All tables include `org_id` for tenant isolation. All timestamps are UTC. All ID
 | name | varchar(255) | |
 | avatar_url | text | |
 | workos_user_id | varchar(255) | UNIQUE |
+| password_hash | text | Only used in local/dev auth mode |
 | created_at | timestamptz | NOT NULL, DEFAULT now() |
 | updated_at | timestamptz | NOT NULL, DEFAULT now() |
 
@@ -34,11 +35,36 @@ All tables include `org_id` for tenant isolation. All timestamps are UTC. All ID
 | id | uuid | PK |
 | org_id | uuid | FK → organizations, NOT NULL |
 | user_id | uuid | FK → users, NOT NULL |
-| role | varchar(50) | NOT NULL, DEFAULT 'member' |
+| role | varchar(50) | NOT NULL, DEFAULT 'org_member' |
 | invited_by | uuid | FK → users |
 | accepted_at | timestamptz | |
 | created_at | timestamptz | NOT NULL, DEFAULT now() |
 | **UNIQUE** | | (org_id, user_id) |
+
+### invitations
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | uuid | PK |
+| org_id | uuid | FK → organizations, NOT NULL |
+| email | varchar(255) | NOT NULL |
+| role | varchar(50) | NOT NULL, DEFAULT 'org_member' |
+| invited_by | uuid | FK → users, NOT NULL |
+| expires_at | timestamptz | NOT NULL |
+| accepted_at | timestamptz | |
+| created_at | timestamptz | NOT NULL, DEFAULT now() |
+
+### sessions
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | uuid | PK |
+| user_id | uuid | FK → users, NOT NULL |
+| org_id | uuid | FK → organizations, NOT NULL |
+| role | varchar(50) | NOT NULL |
+| token_hash | varchar(255) | UNIQUE, NOT NULL |
+| expires_at | timestamptz | NOT NULL |
+| ip_address | inet | |
+| user_agent | text | |
+| created_at | timestamptz | NOT NULL, DEFAULT now() |
 
 ### projects
 | Column | Type | Constraints |
@@ -431,7 +457,14 @@ Enforcement values: enforce, audit, disabled
 ## Indexes
 
 Key indexes (beyond PKs and FKs):
+- `users(email)` — UNIQUE
+- `users(workos_user_id)` — UNIQUE, WHERE NOT NULL
 - `memberships(org_id, user_id)` — UNIQUE
+- `invitations(org_id)` — for listing pending invitations
+- `invitations(email)` — for lookup by email
+- `sessions(token_hash)` — UNIQUE, for session validation
+- `sessions(user_id)` — for listing user sessions
+- `sessions(expires_at)` — for cleanup of expired sessions
 - `projects(org_id, slug)` — UNIQUE
 - `agents(project_id, slug)` — UNIQUE
 - `agent_versions(agent_id, version)` — UNIQUE
