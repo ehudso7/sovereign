@@ -90,6 +90,13 @@ export class PgRevenueService {
     private readonly syncAdapter: CrmSyncAdapter = new LocalCrmSyncAdapter(),
   ) {}
 
+  private _policyService: import("./policy.service.js").PgPolicyService | null = null;
+
+  /** Attach a policy service for runtime enforcement of sync actions. */
+  setPolicyService(svc: import("./policy.service.js").PgPolicyService): void {
+    this._policyService = svc;
+  }
+
   // =========================================================================
   // Accounts
   // =========================================================================
@@ -471,9 +478,49 @@ export class PgRevenueService {
 
   async syncEntity(orgId: OrgId, userId: UserId, input: {
     entityType: string; entityId: string; direction?: string;
-  }): Promise<Result<CrmSyncLog>> {
+  }): Promise<Result<CrmSyncLog & { approvalId?: string; policyDecision?: string }>> {
     try {
       const direction = input.direction ?? "push";
+
+      // Policy evaluation gate — sync is a controlled action
+      if (this._policyService) {
+        const policyResult = await this._policyService.evaluate({
+          orgId,
+          subjectType: "revenue",
+          subjectId: input.entityId,
+          actionType: "revenue.sync",
+          requestedBy: userId,
+          context: { entityType: input.entityType, direction },
+        });
+
+        if (policyResult.ok) {
+          const { decision, approvalId, reason } = policyResult.value;
+
+          if (decision === "deny" || decision === "quarantined") {
+            return err(AppError.forbidden(`Sync blocked by policy: ${reason}`));
+          }
+
+          if (decision === "require_approval") {
+            // Create sync log in pending_approval state
+            const syncLog = await this.syncLogRepo.create({
+              orgId, direction, entityType: input.entityType,
+              entityId: input.entityId, status: "pending",
+              metadata: { approvalId, policyDecision: "require_approval" },
+              createdBy: userId,
+            });
+
+            await this.auditEmitter.emit({
+              orgId, actorId: userId, actorType: "user",
+              action: "revenue.sync_requested", resourceType: "crm_sync_log",
+              resourceId: syncLog.id, metadata: { entityType: input.entityType, policyDecision: "require_approval", approvalId },
+            });
+
+            // Return the sync log with approval info — sync is blocked until approved
+            return ok({ ...syncLog, approvalId: approvalId as string | undefined, policyDecision: "require_approval" });
+          }
+          // decision === "allow" — proceed with sync below
+        }
+      }
 
       // Create sync log entry
       const syncLog = await this.syncLogRepo.create({

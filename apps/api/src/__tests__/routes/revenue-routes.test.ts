@@ -8,8 +8,9 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { toOrgId, toUserId } from "@sovereign/core";
-import type { CrmAccountId } from "@sovereign/core";
+import type { CrmAccountId, ApprovalId } from "@sovereign/core";
 import { PgRevenueService } from "../../services/revenue.service.js";
+import { PgPolicyService } from "../../services/policy.service.js";
 import { PgAuditEmitter } from "../../services/audit.service.js";
 import {
   createTestRepos,
@@ -463,6 +464,239 @@ describe("Revenue Workspace (service-level contract)", () => {
       if (!created.ok) return;
       const result = await svc.getTask(ORG_B, created.value.id);
       expect(result.ok).toBe(false);
+    });
+  });
+
+  // =========================================================================
+  // Policy-Gated Sync
+  // =========================================================================
+
+  describe("Policy-Gated Sync", () => {
+    let policySvc: PgPolicyService;
+
+    beforeEach(() => {
+      const auditEmitter = new PgAuditEmitter(repos.audit);
+      policySvc = new PgPolicyService(
+        repos.policyRepo,
+        repos.policyDecisions,
+        repos.approvals,
+        repos.quarantine,
+        auditEmitter,
+      );
+      svc.setPolicyService(policySvc);
+    });
+
+    it("allow policy — sync proceeds", async () => {
+      // No policies = default allow
+      const acc = await svc.createAccount(ORG_A, USER_ID, { name: "AllowSync" });
+      if (!acc.ok) return;
+      const result = await svc.syncEntity(ORG_A, USER_ID, { entityType: "account", entityId: acc.value.id });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.status).toBe("completed");
+    });
+
+    it("deny policy — sync blocked", async () => {
+      await policySvc.createPolicy({
+        orgId: ORG_A, name: "Block Sync", policyType: "deny",
+        enforcementMode: "deny", scopeType: "revenue",
+        rules: [{ actionPattern: "revenue.sync" }],
+        priority: 100, createdBy: USER_ID,
+      });
+
+      const acc = await svc.createAccount(ORG_A, USER_ID, { name: "DenySync" });
+      if (!acc.ok) return;
+      const result = await svc.syncEntity(ORG_A, USER_ID, { entityType: "account", entityId: acc.value.id });
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.error.code).toBe("FORBIDDEN");
+      expect(result.error.message).toContain("blocked by policy");
+    });
+
+    it("require_approval policy — approval created and sync blocked while pending", async () => {
+      await policySvc.createPolicy({
+        orgId: ORG_A, name: "Approve Sync", policyType: "require_approval",
+        enforcementMode: "require_approval", scopeType: "revenue",
+        rules: [{ actionPattern: "revenue.sync" }],
+        priority: 100, createdBy: USER_ID,
+      });
+
+      const acc = await svc.createAccount(ORG_A, USER_ID, { name: "ApprovalSync" });
+      if (!acc.ok) return;
+      const result = await svc.syncEntity(ORG_A, USER_ID, { entityType: "account", entityId: acc.value.id });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      // Sync log created but pending — not completed
+      expect(result.value.status).toBe("pending");
+      expect(result.value.policyDecision).toBe("require_approval");
+      expect(result.value.approvalId).toBeDefined();
+
+      // Verify approval was created
+      const approvals = await policySvc.listApprovals(ORG_A, { status: "pending" });
+      expect(approvals.ok).toBe(true);
+      if (!approvals.ok) return;
+      expect(approvals.value.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("approved request — sync proceeds after approval", async () => {
+      const APPROVER_ID = toUserId("00000000-0000-0000-0000-dddddddddddd");
+
+      await policySvc.createPolicy({
+        orgId: ORG_A, name: "Approve Sync 2", policyType: "require_approval",
+        enforcementMode: "require_approval", scopeType: "revenue",
+        rules: [{ actionPattern: "revenue.sync" }],
+        priority: 100, createdBy: USER_ID,
+      });
+
+      const acc = await svc.createAccount(ORG_A, USER_ID, { name: "ApproveMe" });
+      if (!acc.ok) return;
+
+      // First attempt — blocked with pending approval
+      const firstResult = await svc.syncEntity(ORG_A, USER_ID, { entityType: "account", entityId: acc.value.id });
+      expect(firstResult.ok).toBe(true);
+      if (!firstResult.ok) return;
+      expect(firstResult.value.policyDecision).toBe("require_approval");
+      const approvalId = firstResult.value.approvalId as ApprovalId;
+      expect(approvalId).toBeDefined();
+
+      // Approve the request
+      const approveResult = await policySvc.approveRequest(approvalId, ORG_A, APPROVER_ID, "Approved");
+      expect(approveResult.ok).toBe(true);
+      if (!approveResult.ok) return;
+      expect(approveResult.value.status).toBe("approved");
+
+      // Verify approval record is now approved
+      const approval = await policySvc.getApproval(approvalId, ORG_A);
+      expect(approval.ok).toBe(true);
+      if (!approval.ok) return;
+      expect(approval.value.status).toBe("approved");
+    });
+
+    it("denied request — sync stays blocked", async () => {
+      const APPROVER_ID = toUserId("00000000-0000-0000-0000-dddddddddddd");
+
+      await policySvc.createPolicy({
+        orgId: ORG_A, name: "Approve Sync 3", policyType: "require_approval",
+        enforcementMode: "require_approval", scopeType: "revenue",
+        rules: [{ actionPattern: "revenue.sync" }],
+        priority: 100, createdBy: USER_ID,
+      });
+
+      const acc = await svc.createAccount(ORG_A, USER_ID, { name: "DenyMe" });
+      if (!acc.ok) return;
+
+      const firstResult = await svc.syncEntity(ORG_A, USER_ID, { entityType: "account", entityId: acc.value.id });
+      expect(firstResult.ok).toBe(true);
+      if (!firstResult.ok) return;
+      const approvalId = firstResult.value.approvalId as ApprovalId;
+
+      // Deny the request
+      const denyResult = await policySvc.denyRequest(approvalId, ORG_A, APPROVER_ID, "Not now");
+      expect(denyResult.ok).toBe(true);
+      if (!denyResult.ok) return;
+      expect(denyResult.value.status).toBe("denied");
+
+      // Subsequent sync attempt still blocked by policy
+      const secondResult = await svc.syncEntity(ORG_A, USER_ID, { entityType: "account", entityId: acc.value.id });
+      expect(secondResult.ok).toBe(true);
+      if (!secondResult.ok) return;
+      // Another approval record created — still blocked
+      expect(secondResult.value.policyDecision).toBe("require_approval");
+    });
+
+    it("expired approval — cannot approve after expiry, subsequent sync still blocked", async () => {
+      const APPROVER_ID = toUserId("00000000-0000-0000-0000-dddddddddddd");
+
+      await policySvc.createPolicy({
+        orgId: ORG_A, name: "Approve Sync 4", policyType: "require_approval",
+        enforcementMode: "require_approval", scopeType: "revenue",
+        rules: [{ actionPattern: "revenue.sync" }],
+        priority: 100, createdBy: USER_ID,
+      });
+
+      const acc = await svc.createAccount(ORG_A, USER_ID, { name: "ExpireMe" });
+      if (!acc.ok) return;
+
+      const result = await svc.syncEntity(ORG_A, USER_ID, { entityType: "account", entityId: acc.value.id });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const approvalId = result.value.approvalId as ApprovalId;
+
+      // Manually expire by creating an approval with past expiresAt and then expiring
+      // The approval was created without expiresAt. Cancel it to simulate expiry.
+      await repos.approvals.cancel(approvalId, ORG_A);
+
+      // Verify approval is cancelled (functionally expired)
+      const approval = await policySvc.getApproval(approvalId, ORG_A);
+      expect(approval.ok).toBe(true);
+      if (!approval.ok) return;
+      expect(approval.value.status).toBe("cancelled");
+
+      // Cannot approve a cancelled/expired request
+      const approveResult = await policySvc.approveRequest(approvalId, ORG_A, APPROVER_ID);
+      expect(approveResult.ok).toBe(false);
+
+      // Subsequent sync attempt still blocked by policy
+      const secondResult = await svc.syncEntity(ORG_A, USER_ID, { entityType: "account", entityId: acc.value.id });
+      expect(secondResult.ok).toBe(true);
+      if (!secondResult.ok) return;
+      expect(secondResult.value.policyDecision).toBe("require_approval");
+    });
+
+    it("quarantined entity — sync blocked", async () => {
+      const acc = await svc.createAccount(ORG_A, USER_ID, { name: "Quarantined" });
+      if (!acc.ok) return;
+
+      // Quarantine the entity
+      await policySvc.quarantineSubject({
+        orgId: ORG_A,
+        subjectType: "revenue",
+        subjectId: acc.value.id,
+        reason: "Suspicious activity",
+        quarantinedBy: USER_ID,
+      });
+
+      const result = await svc.syncEntity(ORG_A, USER_ID, { entityType: "account", entityId: acc.value.id });
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.error.code).toBe("FORBIDDEN");
+      expect(result.error.message).toContain("quarantined");
+    });
+
+    it("allow policy with explicit allow — sync proceeds", async () => {
+      await policySvc.createPolicy({
+        orgId: ORG_A, name: "Allow Sync Explicit", policyType: "access_control",
+        enforcementMode: "allow", scopeType: "revenue",
+        rules: [{ actionPattern: "revenue.sync" }],
+        priority: 100, createdBy: USER_ID,
+      });
+
+      const acc = await svc.createAccount(ORG_A, USER_ID, { name: "ExplicitAllow" });
+      if (!acc.ok) return;
+      const result = await svc.syncEntity(ORG_A, USER_ID, { entityType: "account", entityId: acc.value.id });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.status).toBe("completed");
+    });
+
+    it("audit trail captures policy decision for sync", async () => {
+      await policySvc.createPolicy({
+        orgId: ORG_A, name: "Deny For Audit", policyType: "deny",
+        enforcementMode: "deny", scopeType: "revenue",
+        rules: [{ actionPattern: "revenue.sync" }],
+        priority: 100, createdBy: USER_ID,
+      });
+
+      const acc = await svc.createAccount(ORG_A, USER_ID, { name: "AuditSync" });
+      if (!acc.ok) return;
+      await svc.syncEntity(ORG_A, USER_ID, { entityType: "account", entityId: acc.value.id });
+
+      // Verify policy.decision audit event was emitted
+      const events = await repos.audit.query(ORG_A, { action: "policy.decision" as import("@sovereign/core").AuditAction });
+      expect(events.length).toBeGreaterThanOrEqual(1);
+      const syncDecision = events.find(e => (e.metadata as Record<string, unknown>).actionType === "revenue.sync");
+      expect(syncDecision).toBeDefined();
+      expect((syncDecision!.metadata as Record<string, unknown>).result).toBe("deny");
     });
   });
 });

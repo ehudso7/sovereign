@@ -263,7 +263,9 @@ export function initServices(authConfig: AuthConfig, db: DatabaseClient): Servic
     const syncLogRepo = new PgCrmSyncLogRepo(tenantDb);
     const auditRepo = new PgAuditRepo(tenantDb);
     const auditEmitter = new PgAuditEmitter(auditRepo);
-    return new PgRevenueService(accountRepo, contactRepo, dealRepo, taskRepo, noteRepo, draftRepo, syncLogRepo, auditEmitter);
+    const service = new PgRevenueService(accountRepo, contactRepo, dealRepo, taskRepo, noteRepo, draftRepo, syncLogRepo, auditEmitter);
+    service.setPolicyService(policyForOrg(orgId));
+    return service;
   };
 
   // Default audit emitter uses unscoped DB for cross-org operations (like org.created)
