@@ -83,7 +83,20 @@ export type AuditAction =
   | "approval.cancelled"
   | "quarantine.entered"
   | "quarantine.released"
-  | "secret.resolved";
+  | "secret.resolved"
+  | "revenue.account_created"
+  | "revenue.account_updated"
+  | "revenue.contact_created"
+  | "revenue.contact_updated"
+  | "revenue.deal_created"
+  | "revenue.deal_updated"
+  | "revenue.task_created"
+  | "revenue.task_updated"
+  | "revenue.note_created"
+  | "outreach.generated"
+  | "revenue.sync_requested"
+  | "revenue.sync_completed"
+  | "revenue.sync_failed";
 
 // ---------------------------------------------------------------------------
 // Audit actor types

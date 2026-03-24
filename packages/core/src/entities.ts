@@ -23,6 +23,13 @@ import type {
   ApprovalId,
   PolicyDecisionId,
   QuarantineRecordId,
+  CrmAccountId,
+  CrmContactId,
+  CrmDealId,
+  CrmTaskId,
+  CrmNoteId,
+  OutreachDraftId,
+  CrmSyncLogId,
 } from "./types.js";
 import type { MembershipId, InvitationId, OrgRole } from "./auth.js";
 
@@ -722,4 +729,169 @@ export interface QuarantineRecord {
   readonly releaseNote: string;
   readonly createdAt: ISODateString;
   readonly updatedAt: ISODateString;
+}
+
+// ---------------------------------------------------------------------------
+// CRM Account (Phase 11)
+// ---------------------------------------------------------------------------
+
+export type CrmAccountStatus = "active" | "inactive" | "churned";
+
+export interface CrmAccount {
+  readonly id: CrmAccountId;
+  readonly orgId: OrgId;
+  readonly name: string;
+  readonly domain: string | null;
+  readonly industry: string | null;
+  readonly status: CrmAccountStatus;
+  readonly ownerId: UserId | null;
+  readonly notes: string | null;
+  readonly externalCrmId: string | null;
+  readonly metadata: Record<string, unknown>;
+  readonly createdBy: UserId;
+  readonly updatedBy: UserId;
+  readonly createdAt: ISODateString;
+  readonly updatedAt: ISODateString;
+}
+
+// ---------------------------------------------------------------------------
+// CRM Contact (Phase 11)
+// ---------------------------------------------------------------------------
+
+export type CrmContactStatus = "active" | "inactive";
+
+export interface CrmContact {
+  readonly id: CrmContactId;
+  readonly orgId: OrgId;
+  readonly accountId: CrmAccountId | null;
+  readonly firstName: string;
+  readonly lastName: string;
+  readonly email: string | null;
+  readonly title: string | null;
+  readonly phone: string | null;
+  readonly status: CrmContactStatus;
+  readonly ownerId: UserId | null;
+  readonly externalCrmId: string | null;
+  readonly metadata: Record<string, unknown>;
+  readonly createdBy: UserId;
+  readonly updatedBy: UserId;
+  readonly createdAt: ISODateString;
+  readonly updatedAt: ISODateString;
+}
+
+// ---------------------------------------------------------------------------
+// CRM Deal (Phase 11)
+// ---------------------------------------------------------------------------
+
+export interface CrmDeal {
+  readonly id: CrmDealId;
+  readonly orgId: OrgId;
+  readonly accountId: CrmAccountId | null;
+  readonly name: string;
+  readonly stage: string;
+  readonly valueCents: number | null;
+  readonly currency: string;
+  readonly closeDate: string | null;
+  readonly ownerId: UserId | null;
+  readonly probability: number | null;
+  readonly notes: string | null;
+  readonly externalCrmId: string | null;
+  readonly metadata: Record<string, unknown>;
+  readonly createdBy: UserId;
+  readonly updatedBy: UserId;
+  readonly createdAt: ISODateString;
+  readonly updatedAt: ISODateString;
+}
+
+// ---------------------------------------------------------------------------
+// CRM Task (Phase 11)
+// ---------------------------------------------------------------------------
+
+export type CrmTaskStatus = "open" | "in_progress" | "completed" | "cancelled";
+export type CrmTaskPriority = "low" | "medium" | "high" | "urgent";
+
+export interface CrmTask {
+  readonly id: CrmTaskId;
+  readonly orgId: OrgId;
+  readonly title: string;
+  readonly description: string | null;
+  readonly status: CrmTaskStatus;
+  readonly priority: CrmTaskPriority;
+  readonly dueAt: ISODateString | null;
+  readonly linkedEntityType: string | null;
+  readonly linkedEntityId: string | null;
+  readonly ownerId: UserId | null;
+  readonly metadata: Record<string, unknown>;
+  readonly createdBy: UserId;
+  readonly updatedBy: UserId;
+  readonly createdAt: ISODateString;
+  readonly updatedAt: ISODateString;
+}
+
+// ---------------------------------------------------------------------------
+// CRM Note (Phase 11)
+// ---------------------------------------------------------------------------
+
+export type CrmNoteType = "general" | "meeting" | "call" | "email";
+
+export interface CrmNote {
+  readonly id: CrmNoteId;
+  readonly orgId: OrgId;
+  readonly linkedEntityType: string;
+  readonly linkedEntityId: string;
+  readonly title: string | null;
+  readonly content: string;
+  readonly noteType: CrmNoteType;
+  readonly metadata: Record<string, unknown>;
+  readonly createdBy: UserId;
+  readonly updatedBy: UserId;
+  readonly createdAt: ISODateString;
+  readonly updatedAt: ISODateString;
+}
+
+// ---------------------------------------------------------------------------
+// Outreach Draft (Phase 11)
+// ---------------------------------------------------------------------------
+
+export type OutreachChannel = "email" | "linkedin" | "phone";
+export type OutreachApprovalStatus = "draft" | "pending_approval" | "approved" | "denied" | "sent";
+
+export interface OutreachDraft {
+  readonly id: OutreachDraftId;
+  readonly orgId: OrgId;
+  readonly linkedEntityType: string | null;
+  readonly linkedEntityId: string | null;
+  readonly channel: OutreachChannel;
+  readonly subject: string | null;
+  readonly body: string;
+  readonly generatedBy: string;
+  readonly approvalStatus: OutreachApprovalStatus;
+  readonly approvalId: string | null;
+  readonly metadata: Record<string, unknown>;
+  readonly createdBy: UserId;
+  readonly updatedBy: UserId;
+  readonly createdAt: ISODateString;
+  readonly updatedAt: ISODateString;
+}
+
+// ---------------------------------------------------------------------------
+// CRM Sync Log (Phase 11)
+// ---------------------------------------------------------------------------
+
+export type CrmSyncDirection = "push" | "pull";
+export type CrmSyncStatus = "pending" | "completed" | "failed";
+
+export interface CrmSyncLog {
+  readonly id: CrmSyncLogId;
+  readonly orgId: OrgId;
+  readonly direction: CrmSyncDirection;
+  readonly entityType: string;
+  readonly entityId: string;
+  readonly externalCrmId: string | null;
+  readonly status: CrmSyncStatus;
+  readonly error: string | null;
+  readonly metadata: Record<string, unknown>;
+  readonly createdBy: UserId;
+  readonly createdAt: ISODateString;
+  readonly completedAt: ISODateString | null;
 }

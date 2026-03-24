@@ -43,6 +43,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link href="/mission-control" className="text-gray-600 hover:text-gray-900">
                 Mission Control
               </Link>
+              <Link href="/revenue" className="text-gray-600 hover:text-gray-900">
+                Revenue
+              </Link>
               <Link href="/policies" className="text-gray-600 hover:text-gray-900">
                 Policies
               </Link>

@@ -21,6 +21,13 @@ import type {
   PolicyDecisionId,
   ApprovalId,
   QuarantineRecordId,
+  CrmAccountId,
+  CrmContactId,
+  CrmDealId,
+  CrmTaskId,
+  CrmNoteId,
+  OutreachDraftId,
+  CrmSyncLogId,
 
   OrgRole,
   AgentStatus,
@@ -71,6 +78,13 @@ import type {
   PolicyDecision,
   Approval,
   QuarantineRecord,
+  CrmAccount,
+  CrmContact,
+  CrmDeal,
+  CrmTask,
+  CrmNote,
+  OutreachDraft,
+  CrmSyncLog,
 } from "@sovereign/core";
 
 // ---------------------------------------------------------------------------
@@ -578,4 +592,192 @@ export interface QuarantineRecordRepo {
   listForOrg(orgId: OrgId, filters?: { status?: string; subjectType?: string }): Promise<QuarantineRecord[]>;
   getActiveForSubject(orgId: OrgId, subjectType: string, subjectId: string): Promise<QuarantineRecord | null>;
   release(id: QuarantineRecordId, orgId: OrgId, input: { releasedBy: UserId; releaseNote?: string }): Promise<QuarantineRecord | null>;
+}
+
+// ---------------------------------------------------------------------------
+// CRM Account Repo (Phase 11)
+// ---------------------------------------------------------------------------
+
+export interface CrmAccountRepo {
+  create(input: {
+    orgId: OrgId;
+    name: string;
+    domain?: string;
+    industry?: string;
+    status?: string;
+    ownerId?: UserId;
+    notes?: string;
+    externalCrmId?: string;
+    metadata?: Record<string, unknown>;
+    createdBy: UserId;
+  }): Promise<CrmAccount>;
+  getById(id: CrmAccountId, orgId: OrgId): Promise<CrmAccount | null>;
+  listForOrg(orgId: OrgId, filters?: { status?: string; ownerId?: UserId }): Promise<CrmAccount[]>;
+  update(id: CrmAccountId, orgId: OrgId, input: {
+    name?: string; domain?: string; industry?: string; status?: string;
+    ownerId?: UserId; notes?: string; externalCrmId?: string;
+    metadata?: Record<string, unknown>; updatedBy: UserId;
+  }): Promise<CrmAccount | null>;
+  delete(id: CrmAccountId, orgId: OrgId): Promise<boolean>;
+}
+
+// ---------------------------------------------------------------------------
+// CRM Contact Repo (Phase 11)
+// ---------------------------------------------------------------------------
+
+export interface CrmContactRepo {
+  create(input: {
+    orgId: OrgId;
+    accountId?: string;
+    firstName: string;
+    lastName: string;
+    email?: string;
+    title?: string;
+    phone?: string;
+    status?: string;
+    ownerId?: UserId;
+    externalCrmId?: string;
+    metadata?: Record<string, unknown>;
+    createdBy: UserId;
+  }): Promise<CrmContact>;
+  getById(id: CrmContactId, orgId: OrgId): Promise<CrmContact | null>;
+  listForOrg(orgId: OrgId, filters?: { accountId?: string; ownerId?: UserId; status?: string }): Promise<CrmContact[]>;
+  update(id: CrmContactId, orgId: OrgId, input: {
+    accountId?: string; firstName?: string; lastName?: string;
+    email?: string; title?: string; phone?: string; status?: string;
+    ownerId?: UserId; externalCrmId?: string;
+    metadata?: Record<string, unknown>; updatedBy: UserId;
+  }): Promise<CrmContact | null>;
+  delete(id: CrmContactId, orgId: OrgId): Promise<boolean>;
+}
+
+// ---------------------------------------------------------------------------
+// CRM Deal Repo (Phase 11)
+// ---------------------------------------------------------------------------
+
+export interface CrmDealRepo {
+  create(input: {
+    orgId: OrgId;
+    accountId?: string;
+    name: string;
+    stage?: string;
+    valueCents?: number;
+    currency?: string;
+    closeDate?: string;
+    ownerId?: UserId;
+    probability?: number;
+    notes?: string;
+    externalCrmId?: string;
+    metadata?: Record<string, unknown>;
+    createdBy: UserId;
+  }): Promise<CrmDeal>;
+  getById(id: CrmDealId, orgId: OrgId): Promise<CrmDeal | null>;
+  listForOrg(orgId: OrgId, filters?: { accountId?: string; stage?: string; ownerId?: UserId }): Promise<CrmDeal[]>;
+  update(id: CrmDealId, orgId: OrgId, input: {
+    accountId?: string; name?: string; stage?: string;
+    valueCents?: number; currency?: string; closeDate?: string;
+    ownerId?: UserId; probability?: number; notes?: string;
+    externalCrmId?: string; metadata?: Record<string, unknown>; updatedBy: UserId;
+  }): Promise<CrmDeal | null>;
+  delete(id: CrmDealId, orgId: OrgId): Promise<boolean>;
+}
+
+// ---------------------------------------------------------------------------
+// CRM Task Repo (Phase 11)
+// ---------------------------------------------------------------------------
+
+export interface CrmTaskRepo {
+  create(input: {
+    orgId: OrgId;
+    title: string;
+    description?: string;
+    status?: string;
+    priority?: string;
+    dueAt?: string;
+    linkedEntityType?: string;
+    linkedEntityId?: string;
+    ownerId?: UserId;
+    metadata?: Record<string, unknown>;
+    createdBy: UserId;
+  }): Promise<CrmTask>;
+  getById(id: CrmTaskId, orgId: OrgId): Promise<CrmTask | null>;
+  listForOrg(orgId: OrgId, filters?: { status?: string; ownerId?: UserId; linkedEntityType?: string; linkedEntityId?: string }): Promise<CrmTask[]>;
+  update(id: CrmTaskId, orgId: OrgId, input: {
+    title?: string; description?: string; status?: string; priority?: string;
+    dueAt?: string; linkedEntityType?: string; linkedEntityId?: string;
+    ownerId?: UserId; metadata?: Record<string, unknown>; updatedBy: UserId;
+  }): Promise<CrmTask | null>;
+  delete(id: CrmTaskId, orgId: OrgId): Promise<boolean>;
+}
+
+// ---------------------------------------------------------------------------
+// CRM Note Repo (Phase 11)
+// ---------------------------------------------------------------------------
+
+export interface CrmNoteRepo {
+  create(input: {
+    orgId: OrgId;
+    linkedEntityType: string;
+    linkedEntityId: string;
+    title?: string;
+    content: string;
+    noteType?: string;
+    metadata?: Record<string, unknown>;
+    createdBy: UserId;
+  }): Promise<CrmNote>;
+  getById(id: CrmNoteId, orgId: OrgId): Promise<CrmNote | null>;
+  listForEntity(orgId: OrgId, linkedEntityType: string, linkedEntityId: string): Promise<CrmNote[]>;
+  listForOrg(orgId: OrgId): Promise<CrmNote[]>;
+  update(id: CrmNoteId, orgId: OrgId, input: {
+    title?: string; content?: string; noteType?: string;
+    metadata?: Record<string, unknown>; updatedBy: UserId;
+  }): Promise<CrmNote | null>;
+  delete(id: CrmNoteId, orgId: OrgId): Promise<boolean>;
+}
+
+// ---------------------------------------------------------------------------
+// Outreach Draft Repo (Phase 11)
+// ---------------------------------------------------------------------------
+
+export interface OutreachDraftRepo {
+  create(input: {
+    orgId: OrgId;
+    linkedEntityType?: string;
+    linkedEntityId?: string;
+    channel: string;
+    subject?: string;
+    body: string;
+    generatedBy?: string;
+    approvalStatus?: string;
+    approvalId?: string;
+    metadata?: Record<string, unknown>;
+    createdBy: UserId;
+  }): Promise<OutreachDraft>;
+  getById(id: OutreachDraftId, orgId: OrgId): Promise<OutreachDraft | null>;
+  listForOrg(orgId: OrgId, filters?: { approvalStatus?: string; linkedEntityType?: string; linkedEntityId?: string }): Promise<OutreachDraft[]>;
+  update(id: OutreachDraftId, orgId: OrgId, input: {
+    subject?: string; body?: string; approvalStatus?: string;
+    approvalId?: string; metadata?: Record<string, unknown>; updatedBy: UserId;
+  }): Promise<OutreachDraft | null>;
+  delete(id: OutreachDraftId, orgId: OrgId): Promise<boolean>;
+}
+
+// ---------------------------------------------------------------------------
+// CRM Sync Log Repo (Phase 11)
+// ---------------------------------------------------------------------------
+
+export interface CrmSyncLogRepo {
+  create(input: {
+    orgId: OrgId;
+    direction: string;
+    entityType: string;
+    entityId: string;
+    externalCrmId?: string;
+    status?: string;
+    metadata?: Record<string, unknown>;
+    createdBy: UserId;
+  }): Promise<CrmSyncLog>;
+  getById(id: CrmSyncLogId, orgId: OrgId): Promise<CrmSyncLog | null>;
+  listForOrg(orgId: OrgId, filters?: { status?: string; entityType?: string; entityId?: string }): Promise<CrmSyncLog[]>;
+  updateStatus(id: CrmSyncLogId, orgId: OrgId, status: string, extras?: { externalCrmId?: string; error?: string; completedAt?: string }): Promise<CrmSyncLog | null>;
 }

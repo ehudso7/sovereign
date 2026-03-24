@@ -24,6 +24,13 @@ export type {
   PolicyDecisionRepo,
   ApprovalRepo,
   QuarantineRecordRepo,
+  CrmAccountRepo,
+  CrmContactRepo,
+  CrmDealRepo,
+  CrmTaskRepo,
+  CrmNoteRepo,
+  OutreachDraftRepo,
+  CrmSyncLogRepo,
 } from "./types.js";
 
 export { PgUserRepo } from "./pg-user.repo.js";
@@ -52,3 +59,12 @@ export {
   PgApprovalRepo,
   PgQuarantineRecordRepo,
 } from "./pg-policy.repo.js";
+export {
+  PgCrmAccountRepo,
+  PgCrmContactRepo,
+  PgCrmDealRepo,
+  PgCrmTaskRepo,
+  PgCrmNoteRepo,
+  PgOutreachDraftRepo,
+  PgCrmSyncLogRepo,
+} from "./pg-revenue.repo.js";
