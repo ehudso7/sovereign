@@ -180,7 +180,9 @@ export function initServices(authConfig: AuthConfig, db: DatabaseClient): Servic
     const versionRepo = new PgAgentVersionRepo(tenantDb);
     const auditRepo = new PgAuditRepo(tenantDb);
     const auditEmitter = new PgAuditEmitter(auditRepo);
-    return new PgRunService(runRepo, runStepRepo, agentRepo, versionRepo, auditEmitter);
+    const runService = new PgRunService(runRepo, runStepRepo, agentRepo, versionRepo, auditEmitter);
+    runService.setBillingService(billingForOrg(orgId));
+    return runService;
   };
 
   // Factory for org-scoped connector service
@@ -190,7 +192,9 @@ export function initServices(authConfig: AuthConfig, db: DatabaseClient): Servic
     const credentialRepo = new PgConnectorCredentialRepo(tenantDb);
     const auditRepo = new PgAuditRepo(tenantDb);
     const auditEmitter = new PgAuditEmitter(auditRepo);
-    return new PgConnectorService(connectorRepo, installRepo, credentialRepo, auditEmitter);
+    const connectorService = new PgConnectorService(connectorRepo, installRepo, credentialRepo, auditEmitter);
+    connectorService.setBillingService(billingForOrg(orgId));
+    return connectorService;
   };
 
   // Factory for org-scoped skill service
@@ -212,6 +216,7 @@ export function initServices(authConfig: AuthConfig, db: DatabaseClient): Servic
     const service = new PgBrowserSessionService(sessionRepo, runRepo, auditEmitter);
     // Attach policy service for runtime enforcement of browser risky actions
     service.setPolicyService(policyForOrg(orgId));
+    service.setBillingService(billingForOrg(orgId));
     return service;
   };
 
