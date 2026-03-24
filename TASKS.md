@@ -831,7 +831,7 @@ Grand total: 726 tests (536 unit + 190 integration)
 - [x] Sync log tracks direction, status, external ID, errors
 - [x] Audit events: revenue.sync_requested, revenue.sync_completed, revenue.sync_failed
 
-#### F. API Endpoints (22 endpoints)
+#### F. API Endpoints (24 endpoints)
 - [x] GET /api/v1/revenue/overview
 - [x] GET/POST /api/v1/revenue/accounts, GET/PATCH /api/v1/revenue/accounts/:accountId
 - [x] GET/POST /api/v1/revenue/contacts, GET/PATCH /api/v1/revenue/contacts/:contactId
@@ -933,6 +933,60 @@ Grand total: 786 tests (578 unit + 208 integration)
 - [x] Minimal Revenue Workspace UI works
 - [x] Lint, typecheck, build, unit tests pass
 - [x] No Phase 12 work was done
+
+### Phase 11 Remediation — Contract Reconciliation and Policy-Gated Sync Proof ✅
+
+#### A. API Contract Reconciliation
+- [x] Verified 24 implemented endpoints in code (was incorrectly reported as 22)
+- [x] Corrected endpoint count in TASKS.md from 22 to 24
+- [x] Endpoint list was already accurate — only the summary count was wrong
+
+#### B. Policy/Approval Runtime Enforcement on Revenue Sync
+- [x] PgRevenueService now accepts PgPolicyService via setPolicyService()
+- [x] syncEntity() evaluates policy before sync execution
+- [x] deny policy → sync blocked with FORBIDDEN error
+- [x] quarantined entity → sync blocked with FORBIDDEN error
+- [x] require_approval → approval record created, sync log stays pending
+- [x] allow policy → sync proceeds normally
+- [x] Policy service wired automatically in service registry via policyForOrg()
+
+#### C. Approval Lifecycle Proof for Sync
+- [x] Pending approval blocks sync (returns pending status with approvalId)
+- [x] Approved approval changes status to approved
+- [x] Denied approval keeps sync blocked; subsequent attempt creates new approval
+- [x] Cancelled/expired approval cannot be approved; subsequent sync still blocked
+- [x] Approval state (approvalId, policyDecision) surfaced in sync API response
+
+#### D. Tests Added (9 new)
+- [x] allow policy — sync proceeds (1)
+- [x] deny policy — sync blocked (1)
+- [x] require_approval — approval created and sync blocked while pending (1)
+- [x] approved request — sync proceeds after approval (1)
+- [x] denied request — sync stays blocked (1)
+- [x] expired/cancelled approval — cannot approve, subsequent sync blocked (1)
+- [x] quarantined entity — sync blocked (1)
+- [x] explicit allow policy — sync proceeds (1)
+- [x] audit trail captures policy decision for sync (1)
+
+#### E. Final Verified Totals
+Unit tests (587 total across 5 packages):
+- @sovereign/core: 81 tests
+- @sovereign/api: 466 tests (25 files) — +9 policy-gated sync tests
+- @sovereign/worker-orchestrator: 10 tests
+- @sovereign/worker-browser: 17 tests
+- @sovereign/gateway-mcp: 13 tests
+
+Integration tests (208 total, unchanged):
+- Same 11 suites as before
+
+Grand total: 795 tests (587 unit + 208 integration)
+
+#### F. Exit Gates
+- [x] Revenue endpoint contract is exact and reconciled (24 endpoints)
+- [x] Policy/approval-gated sync behavior proven end to end
+- [x] Pending/approved/denied/expired approval outcomes proven
+- [x] Lint, typecheck, build, unit tests pass
+- [x] No Phase 12 work done
 
 ### Phase 12–14
 _See ROADMAP.md for full phase details._
