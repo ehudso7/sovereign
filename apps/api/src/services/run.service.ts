@@ -28,6 +28,13 @@ export class PgRunService implements RunService {
     private readonly audit: AuditEmitter,
   ) {}
 
+  private _billingService: import("./billing.service.js").PgBillingService | null = null;
+
+  /** Attach a billing service for runtime usage metering and plan enforcement. */
+  setBillingService(svc: import("./billing.service.js").PgBillingService): void {
+    this._billingService = svc;
+  }
+
   // ---------------------------------------------------------------------------
   // createRun
   // ---------------------------------------------------------------------------
@@ -40,6 +47,14 @@ export class PgRunService implements RunService {
     triggerType?: TriggerType,
   ): Promise<Result<Run>> {
     try {
+      // Billing enforcement gate — check agent_runs entitlement
+      if (this._billingService) {
+        const entitlement = await this._billingService.enforceEntitlement(orgId, triggeredBy, "agent_runs");
+        if (entitlement.ok && !entitlement.value.allowed) {
+          return err(new AppError("FORBIDDEN", entitlement.value.reason ?? "Run limit reached for current billing plan"));
+        }
+      }
+
       // Validate agent exists and belongs to org
       const agent = await this.agentRepo.getById(agentId, orgId);
       if (!agent) {
@@ -107,6 +122,18 @@ export class PgRunService implements RunService {
           triggerType: triggerType ?? "manual",
         },
       });
+
+      // Record usage for billing — agent_runs meter
+      if (this._billingService) {
+        await this._billingService.recordUsage(orgId, {
+          eventType: "run_created",
+          meter: "agent_runs",
+          quantity: 1,
+          unit: "runs",
+          sourceType: "run",
+          sourceId: run.id,
+        }).catch(() => {}); // Non-fatal: billing failure should not block run creation
+      }
 
       return ok(run);
     } catch (e) {

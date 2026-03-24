@@ -28,12 +28,18 @@ import type { PgPolicyService } from "./policy.service.js";
 
 export class PgBrowserSessionService {
   private _policyService: PgPolicyService | null = null;
+  private _billingService: import("./billing.service.js").PgBillingService | null = null;
 
   constructor(
     private readonly sessionRepo: BrowserSessionRepo,
     private readonly runRepo: RunRepo,
     private readonly audit: AuditEmitter,
   ) {}
+
+  /** Attach a billing service for usage metering on browser session creation. */
+  setBillingService(svc: import("./billing.service.js").PgBillingService): void {
+    this._billingService = svc;
+  }
 
   /**
    * Attach a policy service for runtime enforcement of browser actions.
@@ -77,6 +83,18 @@ export class PgBrowserSessionService {
         resourceId: session.id,
         metadata: { runId, agentId: run.agentId, browserType: browserType ?? "chromium" },
       });
+
+      // Record usage for billing — browser_sessions meter
+      if (this._billingService) {
+        await this._billingService.recordUsage(orgId, {
+          eventType: "browser_session_created",
+          meter: "browser_sessions",
+          quantity: 1,
+          unit: "sessions",
+          sourceType: "browser_session",
+          sourceId: session.id,
+        }).catch(() => {}); // Non-fatal
+      }
 
       return ok(session);
     } catch (e) {

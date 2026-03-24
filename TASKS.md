@@ -1042,5 +1042,38 @@ Grand total: 795 tests (587 unit + 208 integration)
 - Integration: 219 across 12 suites
 - Grand total: 838
 
+### Phase 12 Remediation — Real Metering and Enforcement Proof ✅
+
+#### A. Real Usage Metering Integration
+- [x] Run creation: PgRunService.createRun() records agent_runs usage event (sourceType: "run", sourceId: run.id)
+- [x] Browser session: PgBrowserSessionService.createSession() records browser_sessions usage event
+- [x] Connector tool: PgConnectorService.test() records connector_calls usage event
+- [x] All metering via setBillingService() pattern wired in service registry
+- [x] Non-fatal: billing failure does not block platform operations (.catch(() => {}))
+
+#### B. Real Plan Enforcement on Run Creation
+- [x] PgRunService.createRun() calls enforceEntitlement(orgId, userId, "agent_runs") before run
+- [x] Free plan at limit (50 runs) → FORBIDDEN with "limit" reason
+- [x] Team plan past limit (1000 runs) with overage_allowed → allowed
+- [x] Enterprise plan → unlimited, always allowed
+- [x] Blocked run emits billing.enforcement_blocked audit event
+
+#### C. Tests Added (10 new)
+- [x] Run creation records agent_runs usage event (1)
+- [x] Multiple runs increment usage count (1)
+- [x] Browser session creation records browser_sessions event (1)
+- [x] Free plan blocks run at limit (1)
+- [x] Free plan allows run under limit (1)
+- [x] Team plan allows run past limit with overage (1)
+- [x] Enterprise plan allows unlimited runs (1)
+- [x] Enforcement blocked emits audit event (1)
+- [x] Allowed run does not emit enforcement audit (1)
+- [x] Spend alert triggers from real accumulated usage-driven spend (1)
+
+#### D. Final Totals
+- Unit: 629 (81 core + 508 api + 10 orch + 17 browser + 13 mcp)
+- Integration: 219 across 12 suites
+- Grand total: 848
+
 ### Phase 13–14
 _See ROADMAP.md for full phase details._

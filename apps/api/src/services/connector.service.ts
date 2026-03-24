@@ -16,12 +16,19 @@ import type { ConnectorRepo, ConnectorInstallRepo, ConnectorCredentialRepo } fro
 import { executeTool, listToolsForConnector } from "@sovereign/gateway-mcp";
 
 export class PgConnectorService {
+  private _billingService: import("./billing.service.js").PgBillingService | null = null;
+
   constructor(
     private readonly connectorRepo: ConnectorRepo,
     private readonly installRepo: ConnectorInstallRepo,
     private readonly credentialRepo: ConnectorCredentialRepo,
     private readonly audit: AuditEmitter,
   ) {}
+
+  /** Attach a billing service for usage metering on connector tool calls. */
+  setBillingService(svc: import("./billing.service.js").PgBillingService): void {
+    this._billingService = svc;
+  }
 
   // -------------------------------------------------------------------------
   // Catalog
@@ -209,6 +216,18 @@ export class PgConnectorService {
           toolTested: testTool.name,
         },
       });
+
+      // Record usage for billing — connector_calls meter
+      if (this._billingService) {
+        await this._billingService.recordUsage(orgId, {
+          eventType: "connector_tool_executed",
+          meter: "connector_calls",
+          quantity: 1,
+          unit: "calls",
+          sourceType: "connector",
+          sourceId: connectorId,
+        }).catch(() => {}); // Non-fatal
+      }
 
       if (result.error) {
         return ok({ success: false, message: result.error.message });
