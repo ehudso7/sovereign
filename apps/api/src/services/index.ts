@@ -15,7 +15,7 @@ import type {
   AuthConfig,
   OrgId,
 } from "@sovereign/core";
-import { PgBrowserSessionRepo, PgMemoryRepo, PgMemoryLinkRepo, PgAlertRuleRepo, PgAlertEventRepo, PgPolicyRepo, PgPolicyDecisionRepo, PgApprovalRepo, PgQuarantineRecordRepo } from "@sovereign/db";
+import { PgBrowserSessionRepo, PgMemoryRepo, PgMemoryLinkRepo, PgAlertRuleRepo, PgAlertEventRepo, PgPolicyRepo, PgPolicyDecisionRepo, PgApprovalRepo, PgQuarantineRecordRepo, PgCrmAccountRepo, PgCrmContactRepo, PgCrmDealRepo, PgCrmTaskRepo, PgCrmNoteRepo, PgOutreachDraftRepo, PgCrmSyncLogRepo } from "@sovereign/db";
 import {
   type DatabaseClient,
   PgUserRepo,
@@ -50,6 +50,7 @@ import { PgBrowserSessionService } from "./browser-session.service.js";
 import { PgMemoryService } from "./memory.service.js";
 import { MissionControlService } from "./mission-control.service.js";
 import { PgPolicyService } from "./policy.service.js";
+import { PgRevenueService } from "./revenue.service.js";
 import { BUILTIN_CONNECTORS, BUILTIN_SKILLS } from "@sovereign/gateway-mcp";
 
 export interface ServiceRegistry {
@@ -81,6 +82,8 @@ export interface ServiceRegistry {
   missionControlForOrg: (orgId: OrgId) => MissionControlService;
   /** Get a policy service scoped to a specific org */
   policyForOrg: (orgId: OrgId) => PgPolicyService;
+  /** Get a revenue service scoped to a specific org */
+  revenueForOrg: (orgId: OrgId) => PgRevenueService;
 }
 
 let _registry: ServiceRegistry | null = null;
@@ -248,6 +251,21 @@ export function initServices(authConfig: AuthConfig, db: DatabaseClient): Servic
     return new PgPolicyService(policyRepo, decisionRepo, approvalRepo, quarantineRepo, auditEmitter);
   };
 
+  // Factory for org-scoped revenue service
+  const revenueForOrg = (orgId: OrgId): PgRevenueService => {
+    const tenantDb = db.forTenant(orgId);
+    const accountRepo = new PgCrmAccountRepo(tenantDb);
+    const contactRepo = new PgCrmContactRepo(tenantDb);
+    const dealRepo = new PgCrmDealRepo(tenantDb);
+    const taskRepo = new PgCrmTaskRepo(tenantDb);
+    const noteRepo = new PgCrmNoteRepo(tenantDb);
+    const draftRepo = new PgOutreachDraftRepo(tenantDb);
+    const syncLogRepo = new PgCrmSyncLogRepo(tenantDb);
+    const auditRepo = new PgAuditRepo(tenantDb);
+    const auditEmitter = new PgAuditEmitter(auditRepo);
+    return new PgRevenueService(accountRepo, contactRepo, dealRepo, taskRepo, noteRepo, draftRepo, syncLogRepo, auditEmitter);
+  };
+
   // Default audit emitter uses unscoped DB for cross-org operations (like org.created)
   // Services that need org-scoped audit will use auditForOrg
   const defaultAuditRepo = new PgAuditRepo(db.forTenant("00000000-0000-0000-0000-000000000000" as OrgId));
@@ -289,6 +307,7 @@ export function initServices(authConfig: AuthConfig, db: DatabaseClient): Servic
     memoryForOrg,
     missionControlForOrg,
     policyForOrg,
+    revenueForOrg,
   };
 
   // Seed catalog asynchronously (non-blocking, log errors)

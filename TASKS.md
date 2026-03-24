@@ -797,5 +797,142 @@ Grand total: 726 tests (536 unit + 190 integration)
 - [x] Lint, typecheck, build, unit tests pass
 - [x] No Phase 11 work done
 
-### Phase 11–14
+### Phase 11 — Revenue Workspace ✅
+
+#### A. Data Model
+- [x] Migration 010_phase11_revenue.sql (crm_accounts, crm_contacts, crm_deals, crm_tasks, crm_notes, outreach_drafts, crm_sync_log with RLS)
+- [x] CrmAccountId, CrmContactId, CrmDealId, CrmTaskId, CrmNoteId, OutreachDraftId, CrmSyncLogId branded types
+- [x] CrmAccount, CrmContact, CrmDeal, CrmTask, CrmNote, OutreachDraft, CrmSyncLog entities
+- [x] PgCrmAccountRepo, PgCrmContactRepo, PgCrmDealRepo, PgCrmTaskRepo, PgCrmNoteRepo, PgOutreachDraftRepo, PgCrmSyncLogRepo implementations
+- [x] All 7 tables RLS-protected with FORCE ROW LEVEL SECURITY
+
+#### B. Revenue Workspace Service
+- [x] PgRevenueService with account/contact/deal/task CRUD
+- [x] Meeting note capture and entity-linked notes
+- [x] AI outreach draft generation (deterministic for dev/CI)
+- [x] CRM sync via adapter pattern (LocalCrmSyncAdapter for dev/proof)
+- [x] Revenue overview with pipeline value, counts, stage distribution
+
+#### C. AI Outreach Drafts
+- [x] generateOutreachDraft with entity context gathering
+- [x] Notes used as additional context for generation
+- [x] Drafts persisted with approval_status (draft/pending_approval/approved/denied/sent)
+- [x] Approval-ready state — no autonomous sending
+
+#### D. Meeting Notes / Revenue Context
+- [x] Notes linked to any revenue entity (account/contact/deal)
+- [x] Note types: general, meeting, call, email
+- [x] Notes queryable per entity and fed into outreach draft context
+
+#### E. CRM Sync Adapter
+- [x] CrmSyncAdapter interface (pushAccount, pushContact, pushDeal)
+- [x] LocalCrmSyncAdapter stub for dev/CI proof
+- [x] Sync pushes entity, stores external CRM ID back on entity
+- [x] Sync log tracks direction, status, external ID, errors
+- [x] Audit events: revenue.sync_requested, revenue.sync_completed, revenue.sync_failed
+
+#### F. API Endpoints (22 endpoints)
+- [x] GET /api/v1/revenue/overview
+- [x] GET/POST /api/v1/revenue/accounts, GET/PATCH /api/v1/revenue/accounts/:accountId
+- [x] GET/POST /api/v1/revenue/contacts, GET/PATCH /api/v1/revenue/contacts/:contactId
+- [x] GET/POST /api/v1/revenue/deals, GET/PATCH /api/v1/revenue/deals/:dealId
+- [x] GET/POST /api/v1/revenue/tasks, GET/PATCH /api/v1/revenue/tasks/:taskId
+- [x] POST /api/v1/revenue/notes, GET /api/v1/revenue/notes
+- [x] POST /api/v1/revenue/outreach-drafts/generate
+- [x] GET /api/v1/revenue/outreach-drafts/:draftId, GET /api/v1/revenue/outreach-drafts
+- [x] POST /api/v1/revenue/sync, GET /api/v1/revenue/sync
+
+#### G. Permission Model
+- [x] revenue:read — all roles
+- [x] revenue:write — org_owner, org_admin, org_member
+- [x] revenue:sync — org_owner, org_admin
+- [x] outreach:generate — org_owner, org_admin, org_member
+- [x] outreach:approve — org_owner, org_admin, org_security_admin
+
+#### H. Audit Events (13 new)
+- [x] revenue.account_created, revenue.account_updated
+- [x] revenue.contact_created, revenue.contact_updated
+- [x] revenue.deal_created, revenue.deal_updated
+- [x] revenue.task_created, revenue.task_updated
+- [x] revenue.note_created
+- [x] outreach.generated
+- [x] revenue.sync_requested, revenue.sync_completed, revenue.sync_failed
+
+#### I. Web UI (13 pages + nav)
+- [x] /revenue — overview with pipeline value, counts, quick actions
+- [x] /revenue/accounts — list with status badges
+- [x] /revenue/accounts/new — create form
+- [x] /revenue/accounts/[accountId] — detail with notes, edit, sync indicator
+- [x] /revenue/contacts — list
+- [x] /revenue/contacts/new — create form
+- [x] /revenue/contacts/[contactId] — detail with notes
+- [x] /revenue/deals — list with stage/value
+- [x] /revenue/deals/new — create form
+- [x] /revenue/deals/[dealId] — detail with notes
+- [x] /revenue/tasks — list with status/priority
+- [x] /revenue/tasks/new — create form
+- [x] /revenue/tasks/[taskId] — detail with status controls
+- [x] /revenue/outreach — generate + list drafts
+- [x] "Revenue" nav link in AppShell
+
+#### J. Testing
+- [x] revenue-routes.test.ts — 42 service-level contract tests
+  - Account CRUD: 6 tests (create, list, get, not-found, update, audit, tenant isolation)
+  - Contact CRUD: 5 tests (create, list, get, update, audit)
+  - Deal CRUD: 5 tests (create, list with filter, update, audit, tenant isolation)
+  - Task CRUD: 4 tests (create, list with filter, update, audit)
+  - Notes: 3 tests (create linked, list for entity, audit)
+  - Outreach Drafts: 5 tests (generate, context-aware generation, get by ID, list, audit)
+  - CRM Sync: 7 tests (sync account/contact/deal, fail nonexistent, fail unsupported, audit lifecycle, list logs)
+  - Revenue Overview: 2 tests (counts with stage distribution, org-scoped)
+  - Tenant Isolation: 4 tests (account/contact/deal/task cross-org blocked)
+- [x] revenue-workspace.test.ts — 18 PostgreSQL integration tests
+  - Account CRUD: 4 tests (create/retrieve, list, update, delete)
+  - Contact CRUD: 2 tests (create/retrieve, link to account)
+  - Deal CRUD: 2 tests (create with value, filter by stage)
+  - Task CRUD: 2 tests (create/retrieve, update status)
+  - Notes: 1 test (create linked notes)
+  - Outreach Drafts: 1 test (create/retrieve)
+  - Sync Log: 1 test (create/update status)
+  - Tenant Isolation: 6 tests (account/contact/deal/task/outreach/sync cross-org blocked)
+  - Audit: 1 test (persist revenue audit events)
+- [x] TestCrmAccountRepo, TestCrmContactRepo, TestCrmDealRepo, TestCrmTaskRepo, TestCrmNoteRepo, TestOutreachDraftRepo, TestCrmSyncLogRepo in-memory repos
+
+#### K. Final Verified Totals
+Unit tests (578 total across 5 packages):
+- @sovereign/core: 81 tests (3 files)
+- @sovereign/api: 457 tests (25 files) — +42 revenue route tests
+- @sovereign/worker-orchestrator: 10 tests (1 file)
+- @sovereign/worker-browser: 17 tests (2 files)
+- @sovereign/gateway-mcp: 13 tests (1 file)
+
+Integration tests (208 total across 11 suites, requires PostgreSQL):
+- revenue-workspace.test.ts: 18 (NEW)
+- policy-engine.test.ts: 21
+- mission-control.test.ts: 29
+- connector-hub.test.ts: 26
+- repositories.test.ts: 28
+- run-engine.test.ts: 19
+- memory-engine.test.ts: 17
+- rls-tenant-isolation.test.ts: 17
+- agent-studio.test.ts: 16
+- browser-sessions.test.ts: 9
+- migrations.test.ts: 8
+
+Grand total: 786 tests (578 unit + 208 integration)
+
+#### L. Exit Gates
+- [x] Account/contact/deal/task CRUD works
+- [x] Revenue overview works
+- [x] Outreach draft generation works
+- [x] Relationship context and notes work
+- [x] CRM sync proof path works
+- [x] Tenant isolation proven in unit and integration tests
+- [x] Revenue/outreach permissions enforced in API
+- [x] PostgreSQL-backed tests cover revenue persistence and sync state
+- [x] Minimal Revenue Workspace UI works
+- [x] Lint, typecheck, build, unit tests pass
+- [x] No Phase 12 work was done
+
+### Phase 12–14
 _See ROADMAP.md for full phase details._

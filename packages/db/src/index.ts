@@ -37,6 +37,13 @@ export type {
   PolicyDecisionRepo,
   ApprovalRepo,
   QuarantineRecordRepo,
+  CrmAccountRepo,
+  CrmContactRepo,
+  CrmDealRepo,
+  CrmTaskRepo,
+  CrmNoteRepo,
+  OutreachDraftRepo,
+  CrmSyncLogRepo,
 } from "./repositories/index.js";
 
 export {
@@ -65,4 +72,11 @@ export {
   PgPolicyDecisionRepo,
   PgApprovalRepo,
   PgQuarantineRecordRepo,
+  PgCrmAccountRepo,
+  PgCrmContactRepo,
+  PgCrmDealRepo,
+  PgCrmTaskRepo,
+  PgCrmNoteRepo,
+  PgOutreachDraftRepo,
+  PgCrmSyncLogRepo,
 } from "./repositories/index.js";

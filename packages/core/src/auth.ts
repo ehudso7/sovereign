@@ -106,7 +106,12 @@ export type Permission =
   | "approval:decide"
   | "audit:read"
   | "quarantine:read"
-  | "quarantine:manage";
+  | "quarantine:manage"
+  | "revenue:read"
+  | "revenue:write"
+  | "revenue:sync"
+  | "outreach:generate"
+  | "outreach:approve";
 
 const ROLE_PERMISSIONS: Record<OrgRole, readonly Permission[]> = {
   org_owner: [
@@ -155,6 +160,11 @@ const ROLE_PERMISSIONS: Record<OrgRole, readonly Permission[]> = {
     "audit:read",
     "quarantine:read",
     "quarantine:manage",
+    "revenue:read",
+    "revenue:write",
+    "revenue:sync",
+    "outreach:generate",
+    "outreach:approve",
   ],
   org_admin: [
     "org:read",
@@ -198,6 +208,11 @@ const ROLE_PERMISSIONS: Record<OrgRole, readonly Permission[]> = {
     "audit:read",
     "quarantine:read",
     "quarantine:manage",
+    "revenue:read",
+    "revenue:write",
+    "revenue:sync",
+    "outreach:generate",
+    "outreach:approve",
   ],
   org_member: [
     "org:read",
@@ -215,6 +230,9 @@ const ROLE_PERMISSIONS: Record<OrgRole, readonly Permission[]> = {
     "approval:read",
     "audit:read",
     "quarantine:read",
+    "revenue:read",
+    "revenue:write",
+    "outreach:generate",
   ],
   org_billing_admin: [
     "org:read",
@@ -229,6 +247,7 @@ const ROLE_PERMISSIONS: Record<OrgRole, readonly Permission[]> = {
     "observability:read",
     "policy:read",
     "audit:read",
+    "revenue:read",
   ],
   org_security_admin: [
     "org:read",
@@ -251,6 +270,8 @@ const ROLE_PERMISSIONS: Record<OrgRole, readonly Permission[]> = {
     "audit:read",
     "quarantine:read",
     "quarantine:manage",
+    "revenue:read",
+    "outreach:approve",
   ],
 };
 

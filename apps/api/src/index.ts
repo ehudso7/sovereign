@@ -15,6 +15,7 @@ import { browserSessionRoutes } from "./routes/browser-sessions.js";
 import { memoryRoutes } from "./routes/memories.js";
 import { missionControlRoutes } from "./routes/mission-control.js";
 import { policyRoutes } from "./routes/policies.js";
+import { revenueRoutes } from "./routes/revenue.js";
 import { devRoutes } from "./routes/dev.js";
 import type { AuthConfig } from "@sovereign/core";
 
@@ -67,6 +68,7 @@ server.register(browserSessionRoutes);
 server.register(memoryRoutes);
 server.register(missionControlRoutes);
 server.register(policyRoutes);
+server.register(revenueRoutes);
 
 // Dev-only routes
 if (process.env.NODE_ENV !== "production") {

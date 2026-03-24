@@ -76,6 +76,20 @@ import type {
   PolicyDecisionId,
   ApprovalId,
   QuarantineRecordId,
+  CrmAccountId,
+  CrmContactId,
+  CrmDealId,
+  CrmTaskId,
+  CrmNoteId,
+  OutreachDraftId,
+  CrmSyncLogId,
+  CrmAccount,
+  CrmContact,
+  CrmDeal,
+  CrmTask,
+  CrmNote,
+  OutreachDraft,
+  CrmSyncLog,
 } from "@sovereign/core";
 
 import {
@@ -103,6 +117,13 @@ import {
   toPolicyDecisionId,
   toApprovalId,
   toQuarantineRecordId,
+  toCrmAccountId,
+  toCrmContactId,
+  toCrmDealId,
+  toCrmTaskId,
+  toCrmNoteId,
+  toOutreachDraftId,
+  toCrmSyncLogId,
 } from "@sovereign/core";
 
 import type {
@@ -114,6 +135,13 @@ import type {
   PolicyDecisionRepo,
   ApprovalRepo,
   QuarantineRecordRepo,
+  CrmAccountRepo,
+  CrmContactRepo,
+  CrmDealRepo,
+  CrmTaskRepo,
+  CrmNoteRepo,
+  OutreachDraftRepo,
+  CrmSyncLogRepo,
   SessionRepo,
   ProjectRepo,
   AuditRepo,
@@ -2169,6 +2197,165 @@ export class TestQuarantineRecordRepo implements QuarantineRecordRepo {
   reset(): void { this.store.clear(); }
 }
 
+// ---------------------------------------------------------------------------
+// In-memory Revenue repos (Phase 11)
+// ---------------------------------------------------------------------------
+
+export class TestCrmAccountRepo implements CrmAccountRepo {
+  private items: CrmAccount[] = [];
+  reset() { this.items = []; }
+
+  async create(input: { orgId: OrgId; name: string; domain?: string; industry?: string; status?: string; ownerId?: UserId; notes?: string; externalCrmId?: string; metadata?: Record<string, unknown>; createdBy: UserId }): Promise<CrmAccount> {
+    const now = toISODateString(new Date());
+    const a: CrmAccount = { id: toCrmAccountId(randomUUID()), orgId: input.orgId, name: input.name, domain: input.domain ?? null, industry: input.industry ?? null, status: (input.status ?? "active") as CrmAccount["status"], ownerId: input.ownerId ?? null, notes: input.notes ?? null, externalCrmId: input.externalCrmId ?? null, metadata: input.metadata ?? {}, createdBy: input.createdBy, updatedBy: input.createdBy, createdAt: now, updatedAt: now };
+    this.items.push(a);
+    return a;
+  }
+  async getById(id: CrmAccountId, orgId: OrgId): Promise<CrmAccount | null> { return this.items.find(a => a.id === id && a.orgId === orgId) ?? null; }
+  async listForOrg(orgId: OrgId, filters?: { status?: string; ownerId?: UserId }): Promise<CrmAccount[]> { return this.items.filter(a => a.orgId === orgId && (!filters?.status || a.status === filters.status) && (!filters?.ownerId || a.ownerId === filters.ownerId)); }
+  async update(id: CrmAccountId, orgId: OrgId, input: { name?: string; domain?: string; industry?: string; status?: string; ownerId?: UserId; notes?: string; externalCrmId?: string; metadata?: Record<string, unknown>; updatedBy: UserId }): Promise<CrmAccount | null> {
+    const idx = this.items.findIndex(a => a.id === id && a.orgId === orgId);
+    if (idx === -1) return null;
+    const old = this.items[idx]!;
+    const updated = { ...old, ...Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined)), updatedAt: toISODateString(new Date()) } as CrmAccount;
+    this.items[idx] = updated;
+    return updated;
+  }
+  async delete(id: CrmAccountId, orgId: OrgId): Promise<boolean> { const l = this.items.length; this.items = this.items.filter(a => !(a.id === id && a.orgId === orgId)); return this.items.length < l; }
+}
+
+export class TestCrmContactRepo implements CrmContactRepo {
+  private items: CrmContact[] = [];
+  reset() { this.items = []; }
+  async create(input: { orgId: OrgId; accountId?: string; firstName: string; lastName: string; email?: string; title?: string; phone?: string; status?: string; ownerId?: UserId; externalCrmId?: string; metadata?: Record<string, unknown>; createdBy: UserId }): Promise<CrmContact> {
+    const now = toISODateString(new Date());
+    const c: CrmContact = { id: toCrmContactId(randomUUID()), orgId: input.orgId, accountId: input.accountId ? toCrmAccountId(input.accountId) : null, firstName: input.firstName, lastName: input.lastName, email: input.email ?? null, title: input.title ?? null, phone: input.phone ?? null, status: (input.status ?? "active") as CrmContact["status"], ownerId: input.ownerId ?? null, externalCrmId: input.externalCrmId ?? null, metadata: input.metadata ?? {}, createdBy: input.createdBy, updatedBy: input.createdBy, createdAt: now, updatedAt: now };
+    this.items.push(c);
+    return c;
+  }
+  async getById(id: CrmContactId, orgId: OrgId): Promise<CrmContact | null> { return this.items.find(c => c.id === id && c.orgId === orgId) ?? null; }
+  async listForOrg(orgId: OrgId, filters?: { accountId?: string; ownerId?: UserId; status?: string }): Promise<CrmContact[]> { return this.items.filter(c => c.orgId === orgId && (!filters?.accountId || c.accountId === filters.accountId) && (!filters?.ownerId || c.ownerId === filters.ownerId) && (!filters?.status || c.status === filters.status)); }
+  async update(id: CrmContactId, orgId: OrgId, input: { accountId?: string; firstName?: string; lastName?: string; email?: string; title?: string; phone?: string; status?: string; ownerId?: UserId; externalCrmId?: string; metadata?: Record<string, unknown>; updatedBy: UserId }): Promise<CrmContact | null> {
+    const idx = this.items.findIndex(c => c.id === id && c.orgId === orgId);
+    if (idx === -1) return null;
+    const old = this.items[idx]!;
+    const updated = { ...old, ...Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined)), updatedAt: toISODateString(new Date()) } as CrmContact;
+    this.items[idx] = updated;
+    return updated;
+  }
+  async delete(id: CrmContactId, orgId: OrgId): Promise<boolean> { const l = this.items.length; this.items = this.items.filter(c => !(c.id === id && c.orgId === orgId)); return this.items.length < l; }
+}
+
+export class TestCrmDealRepo implements CrmDealRepo {
+  private items: CrmDeal[] = [];
+  reset() { this.items = []; }
+  async create(input: { orgId: OrgId; accountId?: string; name: string; stage?: string; valueCents?: number; currency?: string; closeDate?: string; ownerId?: UserId; probability?: number; notes?: string; externalCrmId?: string; metadata?: Record<string, unknown>; createdBy: UserId }): Promise<CrmDeal> {
+    const now = toISODateString(new Date());
+    const d: CrmDeal = { id: toCrmDealId(randomUUID()), orgId: input.orgId, accountId: input.accountId ? toCrmAccountId(input.accountId) : null, name: input.name, stage: input.stage ?? "discovery", valueCents: input.valueCents ?? null, currency: input.currency ?? "USD", closeDate: input.closeDate ?? null, ownerId: input.ownerId ?? null, probability: input.probability ?? null, notes: input.notes ?? null, externalCrmId: input.externalCrmId ?? null, metadata: input.metadata ?? {}, createdBy: input.createdBy, updatedBy: input.createdBy, createdAt: now, updatedAt: now };
+    this.items.push(d);
+    return d;
+  }
+  async getById(id: CrmDealId, orgId: OrgId): Promise<CrmDeal | null> { return this.items.find(d => d.id === id && d.orgId === orgId) ?? null; }
+  async listForOrg(orgId: OrgId, filters?: { accountId?: string; stage?: string; ownerId?: UserId }): Promise<CrmDeal[]> { return this.items.filter(d => d.orgId === orgId && (!filters?.accountId || d.accountId === filters.accountId) && (!filters?.stage || d.stage === filters.stage) && (!filters?.ownerId || d.ownerId === filters.ownerId)); }
+  async update(id: CrmDealId, orgId: OrgId, input: { accountId?: string; name?: string; stage?: string; valueCents?: number; currency?: string; closeDate?: string; ownerId?: UserId; probability?: number; notes?: string; externalCrmId?: string; metadata?: Record<string, unknown>; updatedBy: UserId }): Promise<CrmDeal | null> {
+    const idx = this.items.findIndex(d => d.id === id && d.orgId === orgId);
+    if (idx === -1) return null;
+    const old = this.items[idx]!;
+    const updated = { ...old, ...Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined)), updatedAt: toISODateString(new Date()) } as CrmDeal;
+    this.items[idx] = updated;
+    return updated;
+  }
+  async delete(id: CrmDealId, orgId: OrgId): Promise<boolean> { const l = this.items.length; this.items = this.items.filter(d => !(d.id === id && d.orgId === orgId)); return this.items.length < l; }
+}
+
+export class TestCrmTaskRepo implements CrmTaskRepo {
+  private items: CrmTask[] = [];
+  reset() { this.items = []; }
+  async create(input: { orgId: OrgId; title: string; description?: string; status?: string; priority?: string; dueAt?: string; linkedEntityType?: string; linkedEntityId?: string; ownerId?: UserId; metadata?: Record<string, unknown>; createdBy: UserId }): Promise<CrmTask> {
+    const now = toISODateString(new Date());
+    const t: CrmTask = { id: toCrmTaskId(randomUUID()), orgId: input.orgId, title: input.title, description: input.description ?? null, status: (input.status ?? "open") as CrmTask["status"], priority: (input.priority ?? "medium") as CrmTask["priority"], dueAt: input.dueAt ? toISODateString(input.dueAt) : null, linkedEntityType: input.linkedEntityType ?? null, linkedEntityId: input.linkedEntityId ?? null, ownerId: input.ownerId ?? null, metadata: input.metadata ?? {}, createdBy: input.createdBy, updatedBy: input.createdBy, createdAt: now, updatedAt: now };
+    this.items.push(t);
+    return t;
+  }
+  async getById(id: CrmTaskId, orgId: OrgId): Promise<CrmTask | null> { return this.items.find(t => t.id === id && t.orgId === orgId) ?? null; }
+  async listForOrg(orgId: OrgId, filters?: { status?: string; ownerId?: UserId; linkedEntityType?: string; linkedEntityId?: string }): Promise<CrmTask[]> { return this.items.filter(t => t.orgId === orgId && (!filters?.status || t.status === filters.status) && (!filters?.ownerId || t.ownerId === filters.ownerId) && (!filters?.linkedEntityType || t.linkedEntityType === filters.linkedEntityType) && (!filters?.linkedEntityId || t.linkedEntityId === filters.linkedEntityId)); }
+  async update(id: CrmTaskId, orgId: OrgId, input: { title?: string; description?: string; status?: string; priority?: string; dueAt?: string; linkedEntityType?: string; linkedEntityId?: string; ownerId?: UserId; metadata?: Record<string, unknown>; updatedBy: UserId }): Promise<CrmTask | null> {
+    const idx = this.items.findIndex(t => t.id === id && t.orgId === orgId);
+    if (idx === -1) return null;
+    const old = this.items[idx]!;
+    const updated = { ...old, ...Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined)), updatedAt: toISODateString(new Date()) } as CrmTask;
+    this.items[idx] = updated;
+    return updated;
+  }
+  async delete(id: CrmTaskId, orgId: OrgId): Promise<boolean> { const l = this.items.length; this.items = this.items.filter(t => !(t.id === id && t.orgId === orgId)); return this.items.length < l; }
+}
+
+export class TestCrmNoteRepo implements CrmNoteRepo {
+  private items: CrmNote[] = [];
+  reset() { this.items = []; }
+  async create(input: { orgId: OrgId; linkedEntityType: string; linkedEntityId: string; title?: string; content: string; noteType?: string; metadata?: Record<string, unknown>; createdBy: UserId }): Promise<CrmNote> {
+    const now = toISODateString(new Date());
+    const n: CrmNote = { id: toCrmNoteId(randomUUID()), orgId: input.orgId, linkedEntityType: input.linkedEntityType, linkedEntityId: input.linkedEntityId, title: input.title ?? null, content: input.content, noteType: (input.noteType ?? "general") as CrmNote["noteType"], metadata: input.metadata ?? {}, createdBy: input.createdBy, updatedBy: input.createdBy, createdAt: now, updatedAt: now };
+    this.items.push(n);
+    return n;
+  }
+  async getById(id: CrmNoteId, orgId: OrgId): Promise<CrmNote | null> { return this.items.find(n => n.id === id && n.orgId === orgId) ?? null; }
+  async listForEntity(orgId: OrgId, linkedEntityType: string, linkedEntityId: string): Promise<CrmNote[]> { return this.items.filter(n => n.orgId === orgId && n.linkedEntityType === linkedEntityType && n.linkedEntityId === linkedEntityId); }
+  async listForOrg(orgId: OrgId): Promise<CrmNote[]> { return this.items.filter(n => n.orgId === orgId); }
+  async update(id: CrmNoteId, orgId: OrgId, input: { title?: string; content?: string; noteType?: string; metadata?: Record<string, unknown>; updatedBy: UserId }): Promise<CrmNote | null> {
+    const idx = this.items.findIndex(n => n.id === id && n.orgId === orgId);
+    if (idx === -1) return null;
+    const old = this.items[idx]!;
+    const updated = { ...old, ...Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined)), updatedAt: toISODateString(new Date()) } as CrmNote;
+    this.items[idx] = updated;
+    return updated;
+  }
+  async delete(id: CrmNoteId, orgId: OrgId): Promise<boolean> { const l = this.items.length; this.items = this.items.filter(n => !(n.id === id && n.orgId === orgId)); return this.items.length < l; }
+}
+
+export class TestOutreachDraftRepo implements OutreachDraftRepo {
+  private items: OutreachDraft[] = [];
+  reset() { this.items = []; }
+  async create(input: { orgId: OrgId; linkedEntityType?: string; linkedEntityId?: string; channel: string; subject?: string; body: string; generatedBy?: string; approvalStatus?: string; approvalId?: string; metadata?: Record<string, unknown>; createdBy: UserId }): Promise<OutreachDraft> {
+    const now = toISODateString(new Date());
+    const d: OutreachDraft = { id: toOutreachDraftId(randomUUID()), orgId: input.orgId, linkedEntityType: input.linkedEntityType ?? null, linkedEntityId: input.linkedEntityId ?? null, channel: input.channel as OutreachDraft["channel"], subject: input.subject ?? null, body: input.body, generatedBy: input.generatedBy ?? "ai", approvalStatus: (input.approvalStatus ?? "draft") as OutreachDraft["approvalStatus"], approvalId: input.approvalId ?? null, metadata: input.metadata ?? {}, createdBy: input.createdBy, updatedBy: input.createdBy, createdAt: now, updatedAt: now };
+    this.items.push(d);
+    return d;
+  }
+  async getById(id: OutreachDraftId, orgId: OrgId): Promise<OutreachDraft | null> { return this.items.find(d => d.id === id && d.orgId === orgId) ?? null; }
+  async listForOrg(orgId: OrgId, filters?: { approvalStatus?: string; linkedEntityType?: string; linkedEntityId?: string }): Promise<OutreachDraft[]> { return this.items.filter(d => d.orgId === orgId && (!filters?.approvalStatus || d.approvalStatus === filters.approvalStatus) && (!filters?.linkedEntityType || d.linkedEntityType === filters.linkedEntityType) && (!filters?.linkedEntityId || d.linkedEntityId === filters.linkedEntityId)); }
+  async update(id: OutreachDraftId, orgId: OrgId, input: { subject?: string; body?: string; approvalStatus?: string; approvalId?: string; metadata?: Record<string, unknown>; updatedBy: UserId }): Promise<OutreachDraft | null> {
+    const idx = this.items.findIndex(d => d.id === id && d.orgId === orgId);
+    if (idx === -1) return null;
+    const old = this.items[idx]!;
+    const updated = { ...old, ...Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined)), updatedAt: toISODateString(new Date()) } as OutreachDraft;
+    this.items[idx] = updated;
+    return updated;
+  }
+  async delete(id: OutreachDraftId, orgId: OrgId): Promise<boolean> { const l = this.items.length; this.items = this.items.filter(d => !(d.id === id && d.orgId === orgId)); return this.items.length < l; }
+}
+
+export class TestCrmSyncLogRepo implements CrmSyncLogRepo {
+  private items: CrmSyncLog[] = [];
+  reset() { this.items = []; }
+  async create(input: { orgId: OrgId; direction: string; entityType: string; entityId: string; externalCrmId?: string; status?: string; metadata?: Record<string, unknown>; createdBy: UserId }): Promise<CrmSyncLog> {
+    const now = toISODateString(new Date());
+    const s: CrmSyncLog = { id: toCrmSyncLogId(randomUUID()), orgId: input.orgId, direction: input.direction as CrmSyncLog["direction"], entityType: input.entityType, entityId: input.entityId, externalCrmId: input.externalCrmId ?? null, status: (input.status ?? "pending") as CrmSyncLog["status"], error: null, metadata: input.metadata ?? {}, createdBy: input.createdBy, createdAt: now, completedAt: null };
+    this.items.push(s);
+    return s;
+  }
+  async getById(id: CrmSyncLogId, orgId: OrgId): Promise<CrmSyncLog | null> { return this.items.find(s => s.id === id && s.orgId === orgId) ?? null; }
+  async listForOrg(orgId: OrgId, filters?: { status?: string; entityType?: string; entityId?: string }): Promise<CrmSyncLog[]> { return this.items.filter(s => s.orgId === orgId && (!filters?.status || s.status === filters.status) && (!filters?.entityType || s.entityType === filters.entityType) && (!filters?.entityId || s.entityId === filters.entityId)); }
+  async updateStatus(id: CrmSyncLogId, orgId: OrgId, status: string, extras?: { externalCrmId?: string; error?: string; completedAt?: string }): Promise<CrmSyncLog | null> {
+    const idx = this.items.findIndex(s => s.id === id && s.orgId === orgId);
+    if (idx === -1) return null;
+    const old = this.items[idx]!;
+    const updated = { ...old, status: status as CrmSyncLog["status"], externalCrmId: extras?.externalCrmId ?? old.externalCrmId, error: extras?.error ?? old.error, completedAt: extras?.completedAt ? toISODateString(extras.completedAt) : old.completedAt } as CrmSyncLog;
+    this.items[idx] = updated;
+    return updated;
+  }
+}
+
 export interface TestRepos {
   users: TestUserRepo;
   orgs: TestOrgRepo;
@@ -2195,6 +2382,13 @@ export interface TestRepos {
   policyDecisions: TestPolicyDecisionRepo;
   approvals: TestApprovalRepo;
   quarantine: TestQuarantineRecordRepo;
+  crmAccounts: TestCrmAccountRepo;
+  crmContacts: TestCrmContactRepo;
+  crmDeals: TestCrmDealRepo;
+  crmTasks: TestCrmTaskRepo;
+  crmNotes: TestCrmNoteRepo;
+  outreachDrafts: TestOutreachDraftRepo;
+  crmSyncLog: TestCrmSyncLogRepo;
 }
 
 /**
@@ -2226,6 +2420,13 @@ export function createTestRepos(): TestRepos {
   const policyDecisions = new TestPolicyDecisionRepo();
   const approvals = new TestApprovalRepo();
   const quarantine = new TestQuarantineRecordRepo();
+  const crmAccounts = new TestCrmAccountRepo();
+  const crmContacts = new TestCrmContactRepo();
+  const crmDeals = new TestCrmDealRepo();
+  const crmTasks = new TestCrmTaskRepo();
+  const crmNotes = new TestCrmNoteRepo();
+  const outreachDrafts = new TestOutreachDraftRepo();
+  const crmSyncLog = new TestCrmSyncLogRepo();
 
   // Wire cross-repo references
   memberships._setUserRepo(users);
@@ -2257,6 +2458,13 @@ export function createTestRepos(): TestRepos {
     policyDecisions,
     approvals,
     quarantine,
+    crmAccounts,
+    crmContacts,
+    crmDeals,
+    crmTasks,
+    crmNotes,
+    outreachDrafts,
+    crmSyncLog,
   };
 }
 
@@ -2289,4 +2497,11 @@ export function resetAllRepos(repos: TestRepos): void {
   repos.policyDecisions.reset();
   repos.approvals.reset();
   repos.quarantine.reset();
+  repos.crmAccounts.reset();
+  repos.crmContacts.reset();
+  repos.crmDeals.reset();
+  repos.crmTasks.reset();
+  repos.crmNotes.reset();
+  repos.outreachDrafts.reset();
+  repos.crmSyncLog.reset();
 }

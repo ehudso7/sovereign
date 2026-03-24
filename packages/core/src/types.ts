@@ -47,6 +47,20 @@ export type QuarantineRecordId = Brand<string, "QuarantineRecordId">;
 export const toApprovalId = (id: string): ApprovalId => id as ApprovalId;
 export const toPolicyDecisionId = (id: string): PolicyDecisionId => id as PolicyDecisionId;
 export const toQuarantineRecordId = (id: string): QuarantineRecordId => id as QuarantineRecordId;
+export type CrmAccountId = Brand<string, "CrmAccountId">;
+export type CrmContactId = Brand<string, "CrmContactId">;
+export type CrmDealId = Brand<string, "CrmDealId">;
+export type CrmTaskId = Brand<string, "CrmTaskId">;
+export type CrmNoteId = Brand<string, "CrmNoteId">;
+export type OutreachDraftId = Brand<string, "OutreachDraftId">;
+export type CrmSyncLogId = Brand<string, "CrmSyncLogId">;
+export const toCrmAccountId = (id: string): CrmAccountId => id as CrmAccountId;
+export const toCrmContactId = (id: string): CrmContactId => id as CrmContactId;
+export const toCrmDealId = (id: string): CrmDealId => id as CrmDealId;
+export const toCrmTaskId = (id: string): CrmTaskId => id as CrmTaskId;
+export const toCrmNoteId = (id: string): CrmNoteId => id as CrmNoteId;
+export const toOutreachDraftId = (id: string): OutreachDraftId => id as OutreachDraftId;
+export const toCrmSyncLogId = (id: string): CrmSyncLogId => id as CrmSyncLogId;
 
 // ---------------------------------------------------------------------------
 // Tenant context – threaded through every request
