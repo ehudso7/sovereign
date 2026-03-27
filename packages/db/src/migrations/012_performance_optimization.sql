@@ -1,5 +1,5 @@
 -- Migration: 012_performance_optimization
--- Purpose: Performance indexes, monitoring tables, and maintenance functions
+-- Purpose: Performance indexes, monitoring tables, materialized views, and maintenance functions
 -- ============================================================================
 
 -- ============================================================================
@@ -19,9 +19,9 @@ CREATE INDEX IF NOT EXISTS idx_memberships_user_org_accepted ON memberships (use
 CREATE INDEX IF NOT EXISTS idx_memberships_org_role_accepted ON memberships (org_id, role) WHERE accepted_at IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_memberships_created_at ON memberships (created_at DESC);
 
--- Sessions table: Optimize session validation
-CREATE INDEX IF NOT EXISTS idx_sessions_user_active ON sessions (user_id, expires_at) WHERE expires_at > NOW();
-CREATE INDEX IF NOT EXISTS idx_sessions_cleanup ON sessions (expires_at) WHERE expires_at < NOW();
+-- Sessions table: Optimize session validation (token_hash index already exists in 001)
+CREATE INDEX IF NOT EXISTS idx_sessions_user_expires ON sessions (user_id, expires_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions (expires_at);
 
 -- Audit events: Optimize audit log queries
 CREATE INDEX IF NOT EXISTS idx_audit_events_org_action ON audit_events (org_id, action, created_at DESC);
@@ -30,33 +30,22 @@ CREATE INDEX IF NOT EXISTS idx_audit_events_resource ON audit_events (resource_t
 CREATE INDEX IF NOT EXISTS idx_audit_events_created_at_brin ON audit_events USING brin (created_at);
 
 -- Runs table: Optimize workflow tracking
-CREATE INDEX IF NOT EXISTS idx_runs_org_status ON runs (org_id, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_runs_org_status_created ON runs (org_id, status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_runs_temporal_workflow ON runs (temporal_workflow_id) WHERE temporal_workflow_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_runs_active ON runs (org_id, started_at DESC) WHERE status IN ('running', 'paused');
 
 -- Projects table: Optimize project queries
-CREATE INDEX IF NOT EXISTS idx_projects_org_slug ON projects (org_id, slug);
 CREATE INDEX IF NOT EXISTS idx_projects_org_created ON projects (org_id, created_at DESC);
 
 -- Agents table: Optimize agent lookups
-CREATE INDEX IF NOT EXISTS idx_agents_org_slug ON agents (org_id, slug);
-CREATE INDEX IF NOT EXISTS idx_agents_org_status_new ON agents (org_id, status);
+CREATE INDEX IF NOT EXISTS idx_agents_org_slug_unique ON agents (org_id, slug);
 
 -- Browser sessions: Optimize active session queries
-CREATE INDEX IF NOT EXISTS idx_browser_sessions_org_status ON browser_sessions (org_id, status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_browser_sessions_active ON browser_sessions (org_id, last_activity_at) WHERE status = 'connected';
 
 -- ============================================================================
 -- QUERY PERFORMANCE MONITORING
 -- ============================================================================
-
--- Enable query performance tracking (skip if extension not available)
-DO $$
-BEGIN
-  CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
-EXCEPTION WHEN OTHERS THEN
-  RAISE NOTICE 'pg_stat_statements not available, skipping';
-END $$;
 
 -- Table for tracking slow queries
 CREATE TABLE IF NOT EXISTS performance_metrics (
@@ -124,7 +113,6 @@ CREATE INDEX IF NOT EXISTS idx_user_activity_summary_login ON user_activity_summ
 -- AUTOMATIC MAINTENANCE PROCEDURES
 -- ============================================================================
 
--- Function to automatically clean expired sessions
 CREATE OR REPLACE FUNCTION cleanup_expired_sessions() RETURNS void AS $$
 BEGIN
   DELETE FROM sessions WHERE expires_at < NOW() - INTERVAL '7 days';
@@ -132,7 +120,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Function to refresh materialized views
 CREATE OR REPLACE FUNCTION refresh_activity_summaries() RETURNS void AS $$
 BEGIN
   REFRESH MATERIALIZED VIEW CONCURRENTLY org_activity_summary;
@@ -144,13 +131,9 @@ $$ LANGUAGE plpgsql;
 -- CONSTRAINTS FOR DATA INTEGRITY
 -- ============================================================================
 
--- Ensure email uniqueness is case-insensitive
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_unique_lower ON users (lower(email));
-
--- Ensure org slugs are unique case-insensitive
 CREATE UNIQUE INDEX IF NOT EXISTS idx_organizations_slug_unique_lower ON organizations (lower(slug));
 
--- Ensure one owner per org minimum
 CREATE OR REPLACE FUNCTION ensure_org_has_owner() RETURNS trigger AS $$
 BEGIN
   IF OLD.role = 'org_owner' AND NEW.role != 'org_owner' THEN
@@ -184,7 +167,6 @@ END $$;
 -- MONITORING TABLES
 -- ============================================================================
 
--- Health check table for monitoring
 CREATE TABLE IF NOT EXISTS health_checks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   service_name TEXT NOT NULL,
@@ -211,7 +193,7 @@ COMMENT ON TABLE agents IS 'AI agents with versioning and deployment tracking';
 COMMENT ON TABLE projects IS 'Organizational projects for grouping resources';
 
 -- ============================================================================
--- ROLLBACK
+-- DOWN
 -- ============================================================================
 -- DROP INDEX IF EXISTS idx_users_email_lower;
 -- DROP INDEX IF EXISTS idx_users_created_at;
@@ -220,26 +202,26 @@ COMMENT ON TABLE projects IS 'Organizational projects for grouping resources';
 -- DROP INDEX IF EXISTS idx_memberships_user_org_accepted;
 -- DROP INDEX IF EXISTS idx_memberships_org_role_accepted;
 -- DROP INDEX IF EXISTS idx_memberships_created_at;
--- DROP INDEX IF EXISTS idx_sessions_user_active;
--- DROP INDEX IF EXISTS idx_sessions_cleanup;
+-- DROP INDEX IF EXISTS idx_sessions_user_expires;
+-- DROP INDEX IF EXISTS idx_sessions_expires;
 -- DROP INDEX IF EXISTS idx_audit_events_org_action;
 -- DROP INDEX IF EXISTS idx_audit_events_actor_created;
 -- DROP INDEX IF EXISTS idx_audit_events_resource;
 -- DROP INDEX IF EXISTS idx_audit_events_created_at_brin;
--- DROP INDEX IF EXISTS idx_runs_org_status;
+-- DROP INDEX IF EXISTS idx_runs_org_status_created;
 -- DROP INDEX IF EXISTS idx_runs_temporal_workflow;
 -- DROP INDEX IF EXISTS idx_runs_active;
--- DROP INDEX IF EXISTS idx_projects_org_slug;
 -- DROP INDEX IF EXISTS idx_projects_org_created;
--- DROP INDEX IF EXISTS idx_agents_org_slug;
--- DROP INDEX IF EXISTS idx_agents_org_status_new;
--- DROP INDEX IF EXISTS idx_browser_sessions_org_status;
+-- DROP INDEX IF EXISTS idx_agents_org_slug_unique;
 -- DROP INDEX IF EXISTS idx_browser_sessions_active;
 -- DROP TABLE IF EXISTS performance_metrics;
+-- DROP INDEX IF EXISTS idx_perf_metrics_avg_duration;
+-- DROP INDEX IF EXISTS idx_perf_metrics_call_count;
 -- DROP MATERIALIZED VIEW IF EXISTS org_activity_summary;
 -- DROP MATERIALIZED VIEW IF EXISTS user_activity_summary;
--- DROP TABLE IF EXISTS health_checks;
 -- DROP FUNCTION IF EXISTS cleanup_expired_sessions();
 -- DROP FUNCTION IF EXISTS refresh_activity_summaries();
--- DROP FUNCTION IF EXISTS ensure_org_has_owner();
--- DROP TRIGGER IF EXISTS ensure_org_owner_exists ON memberships;
+-- DROP INDEX IF EXISTS idx_users_email_unique_lower;
+-- DROP INDEX IF EXISTS idx_organizations_slug_unique_lower;
+-- DROP FUNCTION IF EXISTS ensure_org_has_owner() CASCADE;
+-- DROP TABLE IF EXISTS health_checks;
