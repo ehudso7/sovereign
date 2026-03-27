@@ -3,6 +3,6 @@
   "framework": "nextjs",
   "installCommand": "NODE_ENV=development pnpm install --frozen-lockfile",
   "buildCommand": "pnpm --filter=@sovereign/core build && pnpm --filter=@sovereign/ui build && pnpm --filter=@sovereign/web build",
-  "outputDirectory": "apps/web/.next",
+  "outputDirectory": "../web/.next",
   "ignoreCommand": "npx turbo-ignore @sovereign/web"
 }
