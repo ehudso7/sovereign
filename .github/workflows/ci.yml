@@ -10,6 +10,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  NODE_ENV: test
+
 jobs:
   lint:
     name: Lint
@@ -79,6 +82,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://sovereign:sovereign_test@localhost:5432/sovereign_test
       REDIS_URL: redis://localhost:6379
+      SOVEREIGN_SECRET_KEY: test-integration-secret-key-minimum-32-chars!!
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -87,8 +91,8 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Build packages
-        run: pnpm build
+      - name: Build backend packages
+        run: pnpm build --filter=@sovereign/db... --filter=@sovereign/api...
       - name: Run database migrations
         run: pnpm db:migrate
       - name: Run integration tests
@@ -132,8 +136,8 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Build packages
-        run: pnpm build
+      - name: Build backend packages
+        run: pnpm build --filter=@sovereign/db... --filter=@sovereign/api...
       - name: Run database migrations
         run: pnpm db:migrate
       - name: Run E2E tests
