@@ -44,9 +44,9 @@ beforeEach(async () => {
   await truncateAllTables();
 
   const db = getTestDb();
-  const userRepo = new PgUserRepo(db.unscoped());
-  const orgRepo = new PgOrgRepo(db.unscoped());
-  const memberRepo = new PgMembershipRepo(db.unscoped());
+  const unscoped = db.unscoped();
+  const userRepo = new PgUserRepo(unscoped);
+  const orgRepo = new PgOrgRepo(unscoped);
 
   // Create two separate orgs with their own users
   const uA = await userRepo.create({ email: "alice@orga.com", name: "Alice (Org A)" });
@@ -54,9 +54,16 @@ beforeEach(async () => {
   const oA = await orgRepo.create({ name: "Org A", slug: "org-a" });
   const oB = await orgRepo.create({ name: "Org B", slug: "org-b" });
 
-  // Each user is a member of their respective org
-  await memberRepo.create({ orgId: oA.id, userId: uA.id, role: "org_owner", accepted: true });
-  await memberRepo.create({ orgId: oB.id, userId: uB.id, role: "org_owner", accepted: true });
+  // Create memberships within org context for RLS compliance
+  await unscoped.transactionWithOrg(oA.id, async (tx) => {
+    const memberRepo = new PgMembershipRepo(tx);
+    await memberRepo.create({ orgId: oA.id, userId: uA.id, role: "org_owner", accepted: true });
+  });
+
+  await unscoped.transactionWithOrg(oB.id, async (tx) => {
+    const memberRepo = new PgMembershipRepo(tx);
+    await memberRepo.create({ orgId: oB.id, userId: uB.id, role: "org_owner", accepted: true });
+  });
 
   orgA = { id: oA.id, slug: oA.slug };
   orgB = { id: oB.id, slug: oB.slug };

@@ -13,7 +13,7 @@ const TASK_QUEUE = process.env.TEMPORAL_TASK_QUEUE ?? "sovereign-runs";
 const start = async () => {
   console.warn(`Worker orchestrator starting (${TEMPORAL_ADDRESS}, namespace: ${TEMPORAL_NAMESPACE})...`);
 
-  const connectionOptions: any = {
+  const connectionOptions: Parameters<typeof NativeConnection.connect>[0] = {
     address: TEMPORAL_ADDRESS,
   };
 

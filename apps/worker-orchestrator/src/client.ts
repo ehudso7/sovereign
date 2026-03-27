@@ -19,7 +19,7 @@ let _client: Client | null = null;
 export async function getTemporalClient(): Promise<Client> {
   if (_client) return _client;
 
-  const connectionOptions: any = {
+  const connectionOptions: Parameters<typeof Connection.connect>[0] = {
     address: TEMPORAL_ADDRESS,
   };
 
