@@ -1,0 +1,12 @@
+# Ignore everything except what Vercel needs
+apps/api
+apps/gateway-mcp
+apps/worker-browser
+apps/worker-orchestrator
+packages/db/src/__tests__
+packages/*/test
+**/*.test.*
+**/*.spec.*
+.github
+infra
+docs

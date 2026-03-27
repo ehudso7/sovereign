@@ -87,6 +87,8 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Build packages
+        run: pnpm build
       - name: Run database migrations
         run: pnpm db:migrate
       - name: Run integration tests
@@ -130,6 +132,8 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Build packages
+        run: pnpm build
       - name: Run database migrations
         run: pnpm db:migrate
       - name: Run E2E tests
