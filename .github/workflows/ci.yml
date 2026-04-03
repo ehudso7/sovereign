@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_call:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -124,9 +125,10 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
-      DATABASE_URL: postgresql://sovereign:sovereign_dev@localhost:5432/sovereign
+      TEST_DATABASE_URL: postgresql://sovereign:sovereign_dev@127.0.0.1:5432/sovereign
+      DATABASE_URL: postgresql://sovereign:sovereign_dev@127.0.0.1:5432/sovereign
       REDIS_URL: redis://localhost:6379
-      SOVEREIGN_SECRET_KEY: test-e2e-secret-key-minimum-32-chars-long!!
+      SOVEREIGN_SECRET_KEY: test-secret-key-for-testing-32chars!!
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -137,6 +139,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Build backend packages
         run: pnpm build --filter=@sovereign/db... --filter=@sovereign/api...
+      - name: Wait for Postgres and Redis
+        run: |
+          until bash -c ">/dev/tcp/127.0.0.1/5432"; do sleep 1; done
+          until bash -c ">/dev/tcp/127.0.0.1/6379"; do sleep 1; done
       - name: Run database migrations
         run: pnpm db:migrate
       - name: Run E2E tests
