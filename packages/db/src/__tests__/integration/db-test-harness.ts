@@ -9,22 +9,10 @@ import { Pool } from "pg";
 import { DatabaseClient } from "../../client.js";
 import { runMigrations } from "../../migrate.js";
 import { join } from "node:path";
-
-const BASE_URL =
-  process.env.DATABASE_URL ??
-  "postgresql://sovereign:sovereign_test@localhost:5432/sovereign_test";
-
-// Parse the base URL to get connection parameters
-function parseUrl(url: string) {
-  const u = new URL(url);
-  return {
-    host: u.hostname,
-    port: parseInt(u.port || "5432", 10),
-    user: u.username,
-    password: u.password,
-    database: u.pathname.slice(1), // remove leading /
-  };
-}
+import {
+  buildPostgresUrl,
+  resolveIntegrationDatabaseConfig,
+} from "./test-db-config.js";
 
 const migrationsDir = join(import.meta.dirname ?? __dirname, "..", "..", "migrations");
 
@@ -33,61 +21,132 @@ let _testDbName: string | null = null;
 let _adminPool: Pool | null = null;
 let _appRole: string | null = null;
 
+function qident(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
+function qliteral(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`;
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function dropTestDatabase(adminPool: Pool, testDbName: string, appRole: string | null): Promise<void> {
+  try {
+    await adminPool.query(`ALTER DATABASE ${qident(testDbName)} WITH ALLOW_CONNECTIONS false`);
+  } catch {
+    // Best effort. The database may already be gone or not yet accepting the command.
+  }
+
+  try {
+    await adminPool.query(
+      `SELECT pg_terminate_backend(pid)
+         FROM pg_stat_activity
+        WHERE datname = $1
+          AND pid <> pg_backend_pid()`,
+      [testDbName],
+    );
+  } catch {
+    // Best effort. We still attempt to drop below.
+  }
+
+  try {
+    await adminPool.query(`DROP DATABASE IF EXISTS ${qident(testDbName)} WITH (FORCE)`);
+  } catch (forceError) {
+    try {
+      await adminPool.query(`DROP DATABASE IF EXISTS ${qident(testDbName)}`);
+    } catch (dropError) {
+      throw new Error(
+        `Failed to drop integration test database "${testDbName}": ` +
+          `${getErrorMessage(forceError)}; fallback drop also failed: ${getErrorMessage(dropError)}`,
+      );
+    }
+  }
+
+  if (appRole) {
+    await adminPool.query(`DROP ROLE IF EXISTS ${qident(appRole)}`);
+  }
+}
+
 /**
  * Set up a fresh test database with all migrations applied.
  * Call this in beforeAll().
  */
 export async function setupTestDb(): Promise<DatabaseClient> {
-  const parsed = parseUrl(BASE_URL);
+  const { parsed } = resolveIntegrationDatabaseConfig();
 
-  // Connect to the base database to create our test-specific DB
+  // Connect to a maintenance DB so we can safely create/drop the test DB.
+  // Using the target DB here can make teardown flaky when Postgres is still draining connections.
   _adminPool = new Pool({
     host: parsed.host,
     port: parsed.port,
     user: parsed.user,
     password: parsed.password,
-    database: parsed.database,
+    database: "postgres",
   });
 
   // Create a unique database name for this test run
   const suffix = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   _testDbName = `sovereign_inttest_${suffix}`;
 
-  await _adminPool.query(`CREATE DATABASE ${_testDbName}`);
-
-  const testDbUrl = `postgresql://${parsed.user}:${parsed.password}@${parsed.host}:${parsed.port}/${_testDbName}`;
-
-  // Run all migrations against the fresh DB (as superuser)
-  const migrationResult = await runMigrations(testDbUrl, migrationsDir);
-  if (migrationResult.failed.length > 0) {
-    throw new Error(`Migrations failed: ${migrationResult.failed.join(", ")}`);
-  }
-
-  // Create a non-superuser role for the app so RLS is enforced.
-  // Superusers bypass RLS even with FORCE ROW LEVEL SECURITY.
-  const setupPool = new Pool({ connectionString: testDbUrl });
   try {
+    await _adminPool.query(`CREATE DATABASE ${qident(_testDbName)}`);
+
+    const testDbUrl = buildPostgresUrl(parsed, { database: _testDbName });
+
+    // Run all migrations against the fresh DB (as superuser)
+    const migrationResult = await runMigrations(testDbUrl, migrationsDir);
+    if (migrationResult.failed.length > 0) {
+      throw new Error(`Migrations failed: ${migrationResult.failed.join(", ")}`);
+    }
+
+    // Create a non-superuser role for the app so RLS is enforced.
+    // Superusers bypass RLS even with FORCE ROW LEVEL SECURITY.
+    const setupPool = new Pool({ connectionString: testDbUrl });
     const appRole = `sovereign_app_${suffix}`;
-    await setupPool.query(`CREATE ROLE ${appRole} LOGIN PASSWORD '${parsed.password}' NOSUPERUSER`);
-    await setupPool.query(`GRANT ALL ON DATABASE ${_testDbName} TO ${appRole}`);
-    await setupPool.query(`GRANT ALL ON ALL TABLES IN SCHEMA public TO ${appRole}`);
-    await setupPool.query(`GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO ${appRole}`);
-    await setupPool.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO ${appRole}`);
-    await setupPool.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO ${appRole}`);
-    _appRole = appRole;
+    try {
+      await setupPool.query(
+        `CREATE ROLE ${qident(appRole)} LOGIN PASSWORD ${qliteral(parsed.password)} NOSUPERUSER`,
+      );
+      await setupPool.query(`GRANT ALL ON DATABASE ${qident(_testDbName)} TO ${qident(appRole)}`);
+      await setupPool.query(`GRANT ALL ON ALL TABLES IN SCHEMA public TO ${qident(appRole)}`);
+      await setupPool.query(`GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO ${qident(appRole)}`);
+      await setupPool.query(
+        `ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO ${qident(appRole)}`,
+      );
+      await setupPool.query(
+        `ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO ${qident(appRole)}`,
+      );
+      _appRole = appRole;
 
-    // Connect the DatabaseClient as the non-superuser app role
-    const appDbUrl = `postgresql://${appRole}:${parsed.password}@${parsed.host}:${parsed.port}/${_testDbName}`;
-    _dbClient = new DatabaseClient({
-      url: appDbUrl,
-      maxConnections: 5,
-      connectionTimeoutMs: 5_000,
-    });
-  } finally {
-    await setupPool.end();
+      // Connect the DatabaseClient as the non-superuser app role
+      const appDbUrl = buildPostgresUrl(parsed, {
+        user: appRole,
+        password: parsed.password,
+        database: _testDbName,
+      });
+      _dbClient = new DatabaseClient({
+        url: appDbUrl,
+        maxConnections: 5,
+        connectionTimeoutMs: 5_000,
+      });
+    } finally {
+      await setupPool.end();
+    }
+
+    return _dbClient;
+  } catch (error) {
+    if (_adminPool && _testDbName) {
+      try {
+        await dropTestDatabase(_adminPool, _testDbName, _appRole);
+      } catch {
+        // Preserve the original setup error.
+      }
+    }
+    throw error;
   }
-
-  return _dbClient;
 }
 
 /**
@@ -101,25 +160,14 @@ export async function teardownTestDb(): Promise<void> {
   }
 
   if (_adminPool && _testDbName) {
-    // Wait briefly for connections to drain, then terminate any lingering ones
-    await new Promise((resolve) => setTimeout(resolve, 100));
     try {
-      await _adminPool.query(
-        `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()`,
-        [_testDbName],
-      );
-    } catch {
-      // Ignore errors during cleanup
-    }
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    await _adminPool.query(`DROP DATABASE IF EXISTS ${_testDbName}`);
-    if (_appRole) {
-      await _adminPool.query(`DROP ROLE IF EXISTS ${_appRole}`);
+      await dropTestDatabase(_adminPool, _testDbName, _appRole);
+    } finally {
+      await _adminPool.end();
+      _adminPool = null;
+      _testDbName = null;
       _appRole = null;
     }
-    await _adminPool.end();
-    _adminPool = null;
-    _testDbName = null;
   }
 }
 
@@ -152,7 +200,10 @@ export function getTestDbUrl(): string {
   if (!_testDbName) {
     throw new Error("Test database not set up. Call setupTestDb() first.");
   }
-  const parsed = parseUrl(BASE_URL);
-  const user = _appRole ?? parsed.user;
-  return `postgresql://${user}:${parsed.password}@${parsed.host}:${parsed.port}/${_testDbName}`;
+  const { parsed } = resolveIntegrationDatabaseConfig();
+  return buildPostgresUrl(parsed, {
+    user: _appRole ?? parsed.user,
+    password: parsed.password,
+    database: _testDbName,
+  });
 }

@@ -61,8 +61,8 @@ jobs:
         image: postgres:16-alpine
         env:
           POSTGRES_USER: sovereign
-          POSTGRES_PASSWORD: sovereign_test
-          POSTGRES_DB: sovereign_test
+          POSTGRES_PASSWORD: sovereign_dev
+          POSTGRES_DB: sovereign
         ports:
           - 5432:5432
         options: >-
@@ -80,7 +80,8 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
-      DATABASE_URL: postgresql://sovereign:sovereign_test@localhost:5432/sovereign_test
+      TEST_DATABASE_URL: postgresql://sovereign:sovereign_dev@localhost:5432/sovereign
+      DATABASE_URL: postgresql://sovereign:sovereign_dev@localhost:5432/sovereign
       REDIS_URL: redis://localhost:6379
       SOVEREIGN_SECRET_KEY: test-integration-secret-key-minimum-32-chars!!
     steps:
@@ -93,8 +94,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Build backend packages
         run: pnpm build --filter=@sovereign/db... --filter=@sovereign/api...
-      - name: Run database migrations
-        run: pnpm db:migrate
       - name: Run integration tests
         run: pnpm test:integration
 
@@ -106,8 +105,8 @@ jobs:
         image: postgres:16-alpine
         env:
           POSTGRES_USER: sovereign
-          POSTGRES_PASSWORD: sovereign_test
-          POSTGRES_DB: sovereign_test
+          POSTGRES_PASSWORD: sovereign_dev
+          POSTGRES_DB: sovereign
         ports:
           - 5432:5432
         options: >-
@@ -125,7 +124,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
-      DATABASE_URL: postgresql://sovereign:sovereign_test@localhost:5432/sovereign_test
+      DATABASE_URL: postgresql://sovereign:sovereign_dev@localhost:5432/sovereign
       REDIS_URL: redis://localhost:6379
       SOVEREIGN_SECRET_KEY: test-e2e-secret-key-minimum-32-chars-long!!
     steps:

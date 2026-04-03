@@ -16,7 +16,7 @@
     }
   },
   "scripts": {
-    "build": "tsc && cp -r src/migrations dist/migrations",
+    "build": "tsc && rm -rf dist/migrations && cp -r src/migrations dist/migrations",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --config vitest.config.ts",

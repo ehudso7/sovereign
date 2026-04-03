@@ -14,22 +14,15 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { Pool } from "pg";
 import { runMigrations, getMigrationStatus } from "../../migrate.js";
 import { join } from "node:path";
-
-const BASE_URL =
-  process.env.DATABASE_URL ??
-  "postgresql://sovereign:sovereign_test@localhost:5432/sovereign_test";
+import {
+  buildPostgresUrl,
+  resolveIntegrationDatabaseConfig,
+} from "./test-db-config.js";
 
 const migrationsDir = join(import.meta.dirname ?? __dirname, "..", "..", "migrations");
 
-function parseUrl(url: string) {
-  const u = new URL(url);
-  return {
-    host: u.hostname,
-    port: parseInt(u.port || "5432", 10),
-    user: u.username,
-    password: u.password,
-    database: u.pathname.slice(1),
-  };
+function qident(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`;
 }
 
 let adminPool: Pool;
@@ -37,27 +30,42 @@ let testDbName: string;
 let testDbUrl: string;
 
 beforeAll(async () => {
-  const parsed = parseUrl(BASE_URL);
+  const { parsed } = resolveIntegrationDatabaseConfig();
   adminPool = new Pool({
     host: parsed.host,
     port: parsed.port,
     user: parsed.user,
     password: parsed.password,
-    database: parsed.database,
+    database: "postgres",
   });
 
   testDbName = `sovereign_migration_test_${Date.now().toString(36)}`;
-  await adminPool.query(`CREATE DATABASE ${testDbName}`);
-  testDbUrl = `postgresql://${parsed.user}:${parsed.password}@${parsed.host}:${parsed.port}/${testDbName}`;
+  await adminPool.query(`CREATE DATABASE ${qident(testDbName)}`);
+  testDbUrl = buildPostgresUrl(parsed, { database: testDbName });
 });
 
 afterAll(async () => {
   if (adminPool && testDbName) {
+    try {
+      await adminPool.query(`ALTER DATABASE ${qident(testDbName)} WITH ALLOW_CONNECTIONS false`);
+    } catch {
+      // Best effort cleanup.
+    }
+
     await adminPool.query(
-      `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()`,
+      `SELECT pg_terminate_backend(pid)
+         FROM pg_stat_activity
+        WHERE datname = $1
+          AND pid <> pg_backend_pid()`,
       [testDbName],
     );
-    await adminPool.query(`DROP DATABASE IF EXISTS ${testDbName}`);
+
+    try {
+      await adminPool.query(`DROP DATABASE IF EXISTS ${qident(testDbName)} WITH (FORCE)`);
+    } catch {
+      await adminPool.query(`DROP DATABASE IF EXISTS ${qident(testDbName)}`);
+    }
+
     await adminPool.end();
   }
 });

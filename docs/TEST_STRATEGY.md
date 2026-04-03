@@ -192,12 +192,12 @@
 # Start PostgreSQL (via Docker Compose or local install)
 docker compose -f infra/docker/docker-compose.yml up -d postgres
 
-# Run migrations and integration tests
-./infra/scripts/run-integration-tests.sh
+# Run integration tests
+TEST_DATABASE_URL=postgresql://sovereign:sovereign_dev@localhost:5432/sovereign pnpm test:integration
 
 # Or manually:
-DATABASE_URL=postgresql://sovereign:sovereign_dev@localhost:5432/sovereign pnpm db:migrate
-DATABASE_URL=postgresql://sovereign:sovereign_dev@localhost:5432/sovereign pnpm --filter @sovereign/db test:integration
+TEST_DATABASE_URL=postgresql://sovereign:sovereign_dev@localhost:5432/sovereign DATABASE_URL=postgresql://sovereign:sovereign_dev@localhost:5432/sovereign pnpm db:migrate
+TEST_DATABASE_URL=postgresql://sovereign:sovereign_dev@localhost:5432/sovereign DATABASE_URL=postgresql://sovereign:sovereign_dev@localhost:5432/sovereign pnpm --filter @sovereign/db test:integration
 ```
 
 ### Test Factories
@@ -291,7 +291,8 @@ Full API-level end-to-end tests using Fastify `.inject()` against real PostgreSQ
 ## Test Environment Variables
 
 ```
-DATABASE_URL=postgresql://test:test@localhost:5433/sovereign_test
+TEST_DATABASE_URL=postgresql://sovereign:sovereign_dev@localhost:5432/sovereign
+DATABASE_URL=postgresql://sovereign:sovereign_dev@localhost:5432/sovereign
 REDIS_URL=redis://localhost:6380
 TEMPORAL_ADDRESS=localhost:7234
 WORKOS_API_KEY=test_key

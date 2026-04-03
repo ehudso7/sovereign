@@ -8,6 +8,7 @@
 |----------|----------|---------|-------------|
 | `NODE_ENV` | Yes | `development` | `production`, `staging`, or `development` |
 | `DATABASE_URL` | Yes | `postgresql://sovereign:sovereign_dev@localhost:5432/sovereign` | PostgreSQL connection string |
+| `TEST_DATABASE_URL` | No | — | Dedicated PostgreSQL connection string for integration/E2E tests; preferred over reusing `DATABASE_URL` |
 | `DB_MAX_CONNECTIONS` | No | `10` | Max connections in pool |
 | `DB_DEBUG` | No | `false` | Enable SQL query logging |
 | `PORT` | No | `3002` | API server port |
@@ -92,3 +93,15 @@ export DATABASE_URL=postgresql://sovereign:sovereign_dev@localhost:5432/sovereig
 export AUTH_MODE=local
 export SOVEREIGN_SECRET_KEY=dev-secret-key-for-local-testing-only-32ch
 ```
+
+## Local Integration Tests
+
+Use a dedicated test DB connection contract so the harness can create and drop transient databases deterministically:
+
+```bash
+export TEST_DATABASE_URL=postgresql://sovereign:sovereign_dev@localhost:5432/sovereign
+export DATABASE_URL="$TEST_DATABASE_URL"
+pnpm test:integration
+```
+
+`TEST_DATABASE_URL` is preferred for test infrastructure. `DATABASE_URL` remains a supported fallback for compatibility.
