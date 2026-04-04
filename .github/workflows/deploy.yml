@@ -35,6 +35,9 @@ jobs:
       url: ${{ steps.deploy.outputs.url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
       - name: Deploy to Vercel
         id: deploy
         env:
@@ -71,6 +74,9 @@ jobs:
       url: ${{ steps.deploy.outputs.url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
       - name: Deploy to Vercel
         id: deploy
         env:
@@ -106,6 +112,9 @@ jobs:
       name: ${{ inputs.environment }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
       - name: Install Railway CLI
         run: npm i -g @railway/cli
       - name: Deploy API
@@ -124,6 +133,12 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: railway up --service sovereign-gateway-mcp --detach
+      - name: Wait for detached Railway deploys to settle
+        env:
+          DEPLOY_SETTLE_SECONDS: ${{ inputs.environment == 'production' && '60' || '30' }}
+        run: |
+          echo "Waiting ${DEPLOY_SETTLE_SECONDS}s for detached Railway deploys to settle..."
+          sleep "${DEPLOY_SETTLE_SECONDS}"
       - name: Save deploy evidence
         run: |
           mkdir -p evidence
@@ -179,8 +194,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run smoke checks
         env:
-          API_BASE_URL: ${{ vars.API_BASE_URL }}
-          APP_BASE_URL: ${{ vars.APP_BASE_URL }}
+          API_BASE_URL: ${{ inputs.environment == 'production' && vars.API_BASE_URL_PRODUCTION || vars.API_BASE_URL_STAGING }}
+          APP_BASE_URL: ${{ inputs.environment == 'production' && vars.APP_BASE_URL_PRODUCTION || vars.APP_BASE_URL_STAGING }}
         run: |
           mkdir -p evidence
 
@@ -189,21 +204,47 @@ jobs:
           echo "SHA: ${{ github.sha }}" | tee -a evidence/smoke.txt
           echo "" | tee -a evidence/smoke.txt
 
+          if [ -z "${API_BASE_URL}" ]; then
+            echo "FAIL: API_BASE_URL is empty. Configure API_BASE_URL_STAGING and API_BASE_URL_PRODUCTION." | tee -a evidence/smoke.txt
+            exit 1
+          fi
+
+          if [ -z "${APP_BASE_URL}" ]; then
+            echo "FAIL: APP_BASE_URL is empty. Configure APP_BASE_URL_STAGING and APP_BASE_URL_PRODUCTION." | tee -a evidence/smoke.txt
+            exit 1
+          fi
+
           # Health check
           echo "--- GET ${API_BASE_URL}/health ---" | tee -a evidence/smoke.txt
-          HTTP_CODE=$(curl -s -o /tmp/health.json -w "%{http_code}" "${API_BASE_URL}/health" || echo "000")
-          echo "Status: ${HTTP_CODE}" | tee -a evidence/smoke.txt
-          cat /tmp/health.json >> evidence/smoke.txt 2>/dev/null || true
-          echo "" | tee -a evidence/smoke.txt
+          MAX_ATTEMPTS=10
+          SLEEP_SECONDS=10
+          HTTP_CODE="000"
+
+          for attempt in $(seq 1 "${MAX_ATTEMPTS}"); do
+            echo "Attempt ${attempt}/${MAX_ATTEMPTS}" | tee -a evidence/smoke.txt
+            HTTP_CODE=$(curl -sS --connect-timeout 5 --max-time 10 -o /tmp/health.json -w "%{http_code}" "${API_BASE_URL}/health" || echo "000")
+            echo "Status: ${HTTP_CODE}" | tee -a evidence/smoke.txt
+            cat /tmp/health.json >> evidence/smoke.txt 2>/dev/null || true
+            echo "" | tee -a evidence/smoke.txt
+
+            if [ "$HTTP_CODE" = "200" ]; then
+              break
+            fi
+
+            if [ "$attempt" -lt "$MAX_ATTEMPTS" ]; then
+              echo "Retrying in ${SLEEP_SECONDS}s..." | tee -a evidence/smoke.txt
+              sleep "${SLEEP_SECONDS}"
+            fi
+          done
 
           if [ "$HTTP_CODE" != "200" ]; then
-            echo "FAIL: Health check returned ${HTTP_CODE}" | tee -a evidence/smoke.txt
+            echo "FAIL: Health check returned ${HTTP_CODE} after ${MAX_ATTEMPTS} attempts" | tee -a evidence/smoke.txt
             exit 1
           fi
 
           # Web app reachable
           echo "--- GET ${APP_BASE_URL} ---" | tee -a evidence/smoke.txt
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${APP_BASE_URL}" || echo "000")
+          HTTP_CODE=$(curl -sS --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "${APP_BASE_URL}" || echo "000")
           echo "Status: ${HTTP_CODE}" | tee -a evidence/smoke.txt
           echo "" | tee -a evidence/smoke.txt
 
