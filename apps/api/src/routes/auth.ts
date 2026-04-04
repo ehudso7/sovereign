@@ -7,7 +7,7 @@ import { z } from "zod";
 import { toOrgId } from "@sovereign/core";
 import { getServices } from "../services/index.js";
 import { authenticate } from "../middleware/auth.js";
-import { resolveAllowedReturnTo, resolveRequestOrigin } from "../lib/urls.js";
+import { resolveAllowedReturnTo } from "../lib/urls.js";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -15,17 +15,17 @@ const loginSchema = z.object({
   orgId: z.string().uuid().optional(),
 });
 
-const workosLoginQuerySchema = z.object({
-  returnTo: z.string().url().optional(),
-  loginHint: z.string().email().optional(),
-  screenHint: z.enum(["sign-in", "sign-up"]).optional(),
+const bootstrapSchema = z.object({
+  email: z.string().email(),
+  name: z.string().trim().min(1),
+  orgName: z.string().trim().min(1),
+  orgSlug: z.string().trim().regex(/^[a-z0-9-]+$/),
 });
 
-const workosCallbackQuerySchema = z.object({
-  code: z.string().optional(),
-  state: z.string().optional(),
-  error: z.string().optional(),
-  error_description: z.string().optional(),
+const workosBootstrapSchema = z.object({
+  token: z.string().min(1),
+  orgName: z.string().trim().min(1),
+  orgSlug: z.string().trim().regex(/^[a-z0-9-]+$/),
 });
 
 const switchOrgSchema = z.object({

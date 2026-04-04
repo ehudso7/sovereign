@@ -37,6 +37,11 @@ interface AuthContextValue extends AuthState {
     orgName: string;
     orgSlug: string;
   }) => Promise<boolean>;
+  bootstrapWithWorkos: (params: {
+    token: string;
+    orgName: string;
+    orgSlug: string;
+  }) => Promise<boolean>;
   /** Load a session from an existing token (used by OAuth callback) */
   loadSessionFromToken: (token: string) => Promise<boolean>;
 }
@@ -164,12 +169,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return loadSession(result.data.auth.sessionToken);
   }, [loadSession]);
 
+  const bootstrapWithWorkos = useCallback(async (params: {
+    token: string;
+    orgName: string;
+    orgSlug: string;
+  }) => {
+    const result = await apiFetch<{
+      user: AuthUser;
+      sessionToken: string;
+      expiresAt: string;
+    }>("/api/v1/auth/workos/bootstrap", {
+      method: "POST",
+      body: JSON.stringify(params),
+    });
+
+    if (!result.ok) return false;
+
+    localStorage.setItem(TOKEN_KEY, result.data.sessionToken);
+    return loadSession(result.data.sessionToken);
+  }, [loadSession]);
+
+  const completeSessionToken = useCallback(async (token: string) => {
+    localStorage.setItem(TOKEN_KEY, token);
+    return loadSession(token);
+  }, [loadSession]);
+
   const loadSessionFromToken = useCallback(async (token: string) => {
     return loadSession(token);
   }, [loadSession]);
 
   return (
-    <AuthContext.Provider value={{ ...state, signIn, signOut, switchOrg, bootstrap, loadSessionFromToken }}>
+    <AuthContext.Provider
+      value={{
+        ...state,
+        signIn,
+        signOut,
+        switchOrg,
+        completeSessionToken,
+        bootstrap,
+        bootstrapWithWorkos,
+        loadSessionFromToken,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

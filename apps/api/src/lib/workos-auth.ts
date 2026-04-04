@@ -127,7 +127,11 @@ export function parseCookieHeader(header?: string): Record<string, string> {
       }
       const key = part.slice(0, separatorIndex);
       const value = part.slice(separatorIndex + 1);
-      acc[key] = decodeURIComponent(value);
+      try {
+        acc[key] = decodeURIComponent(value);
+      } catch {
+        // Ignore malformed cookie values from arbitrary clients.
+      }
       return acc;
     }, {});
 }

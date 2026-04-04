@@ -4,6 +4,7 @@ import {
   createWorkosBootstrapToken,
   createWorkosLoginStateToken,
   extractWorkosSessionId,
+  parseCookieHeader,
   verifyWorkosBootstrapToken,
   verifyWorkosLoginStateToken,
 } from "../../lib/workos-auth.js";
@@ -59,5 +60,9 @@ describe("workos auth helpers", () => {
       firstName: null,
       lastName: null,
     })).toBe("solo user");
+  });
+
+  it("ignores malformed cookie values", () => {
+    expect(parseCookieHeader("good=value; bad=%E0%A4%A")).toEqual({ good: "value" });
   });
 });

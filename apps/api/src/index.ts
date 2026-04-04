@@ -1,5 +1,4 @@
 import Fastify from "fastify";
-import fastifyCors from "@fastify/cors";
 import type { FastifyInstance } from "fastify";
 import { initDb, type DatabaseClient } from "@sovereign/db";
 import { initServices } from "./services/index.js";
@@ -47,14 +46,6 @@ export function buildApp(authConfig: AuthConfig, db: DatabaseClient, opts?: { lo
     if (process.env.NODE_ENV === "production") {
       reply.header("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
     }
-  });
-
-  // CORS — allow configured origins
-  const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS ?? "http://localhost:3000").split(",").map(s => s.trim());
-  app.register(fastifyCors, {
-    origin: allowedOrigins,
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   });
 
   // Rate limiting (requires REDIS_URL; skipped gracefully if unavailable)

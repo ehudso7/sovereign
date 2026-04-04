@@ -61,7 +61,7 @@ export class PgUserRepo implements UserRepo {
 
   async getByEmail(email: string): Promise<(User & { passwordHash?: string }) | null> {
     const row = await this.db.queryOne<UserRow>(
-      "SELECT * FROM users WHERE lower(email) = lower($1)",
+      "SELECT * FROM users WHERE email = $1",
       [normalizeEmail(email)],
     );
     return row ? toUser(row) : null;

@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
-import { useAuth } from "@/lib/auth-context";
+import { Suspense, useEffect, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useAuth } from "@/lib/auth-context";
+import { getApiBaseUrl } from "@/lib/api";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3002";
 const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE ?? "local";
 
 function SignInContent() {
@@ -19,67 +19,59 @@ function SignInContent() {
   const [orgName, setOrgName] = useState("");
   const [orgSlug, setOrgSlug] = useState("");
 
-  // Show error from WorkOS callback if present
   useEffect(() => {
-    const errorParam = searchParams.get("error");
-    if (errorParam) {
-      setError(decodeURIComponent(errorParam));
-    }
+    setError(searchParams.get("error") ?? "");
   }, [searchParams]);
 
   const isWorkOS = AUTH_MODE === "workos";
 
   const handleWorkOSSignIn = () => {
-    setIsLoading(true);
-    // Redirect to API authorize endpoint which redirects to WorkOS
-    window.location.href = `${API_BASE}/api/v1/auth/authorize`;
-  };
-
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
     setError("");
     setIsLoading(true);
 
-    const success = await signIn(email);
-    if (success) {
-      router.push("/dashboard");
-    } else {
+    const authorizeUrl = new URL("/api/v1/auth/authorize", getApiBaseUrl());
+    authorizeUrl.searchParams.set("redirect_to", "/dashboard");
+    window.location.assign(authorizeUrl.toString());
+  };
+
+  const handleSignIn = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError("");
+    setIsLoading(true);
+
+    try {
+      const success = await signIn(email);
+      if (success) {
+        router.push("/dashboard");
+        return;
+      }
+
       setError("Sign in failed. If this is a new installation, use the bootstrap form.");
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
-  const handleBootstrap = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleBootstrap = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     setError("");
     setIsLoading(true);
 
-    const success = await bootstrap({ email, name, orgName, orgSlug });
-    if (success) {
-      router.push("/dashboard");
-    } else {
+    try {
+      const success = await bootstrap({ email, name, orgName, orgSlug });
+      if (success) {
+        router.push("/dashboard");
+        return;
+      }
+
       setError("Bootstrap failed. Check the API server logs.");
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
-  };
-
-  const handleWorkosSignIn = () => {
-    setError("");
-    setIsLoading(true);
-
-    const callbackUrl = new URL("/auth/callback", window.location.origin);
-    callbackUrl.searchParams.set("next", "/dashboard");
-
-    const loginUrl = new URL("/api/v1/auth/login", getApiBaseUrl());
-    loginUrl.searchParams.set("returnTo", callbackUrl.toString());
-    loginUrl.searchParams.set("screenHint", "sign-in");
-
-    window.location.assign(loginUrl.toString());
   };
 
   return (
     <>
-      {/* Background decoration */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -left-40 -top-40 h-80 w-80 rounded-full bg-[rgb(var(--color-brand)/0.06)] blur-3xl" />
         <div className="absolute -bottom-40 -right-40 h-80 w-80 rounded-full bg-[rgb(var(--color-brand)/0.04)] blur-3xl" />
@@ -101,12 +93,8 @@ function SignInContent() {
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-[rgb(var(--color-text-primary))]">
-            SOVEREIGN
-          </h1>
-          <p className="mt-1 text-sm text-[rgb(var(--color-text-tertiary))]">
-            Agent Operating System
-          </p>
+          <h1 className="text-2xl font-bold text-[rgb(var(--color-text-primary))]">SOVEREIGN</h1>
+          <p className="mt-1 text-sm text-[rgb(var(--color-text-tertiary))]">Agent Operating System</p>
         </div>
 
         <div className="rounded-xl border border-[rgb(var(--color-border-primary))] bg-[rgb(var(--color-bg-secondary))] p-8 shadow-lg shadow-black/5">
@@ -114,13 +102,12 @@ function SignInContent() {
             {isWorkOS ? "Sign In" : isBootstrap ? "Bootstrap Account" : "Sign In"}
           </h2>
 
-          {error && (
+          {error ? (
             <div className="mb-4 rounded-lg border border-[rgb(var(--color-error)/0.3)] bg-[rgb(var(--color-error)/0.08)] px-4 py-3 text-sm text-[rgb(var(--color-error))]">
               {error}
             </div>
-          )}
+          ) : null}
 
-          {/* ─── WorkOS auth mode: single SSO button ─── */}
           {isWorkOS ? (
             <div className="space-y-4">
               <p className="text-sm text-[rgb(var(--color-text-secondary))]">
@@ -134,11 +121,7 @@ function SignInContent() {
               >
                 {isLoading ? (
                   <span className="flex items-center justify-center gap-2">
-                    <svg
-                      className="h-4 w-4 animate-spin"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                    >
+                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
                       <circle
                         cx="12"
                         cy="12"
@@ -160,8 +143,6 @@ function SignInContent() {
                 )}
               </button>
             </div>
-
-          /* ─── Local auth mode: email + optional bootstrap ─── */
           ) : !isBootstrap ? (
             <form onSubmit={handleSignIn} className="space-y-4">
               <div>
@@ -175,7 +156,7 @@ function SignInContent() {
                   id="email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(event) => setEmail(event.target.value)}
                   required
                   className="input w-full"
                   placeholder="you@company.com"
@@ -219,7 +200,7 @@ function SignInContent() {
                   id="b-email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(event) => setEmail(event.target.value)}
                   required
                   className="input w-full"
                   placeholder="admin@company.com"
@@ -236,7 +217,7 @@ function SignInContent() {
                   id="b-name"
                   type="text"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(event) => setName(event.target.value)}
                   required
                   className="input w-full"
                   placeholder="Your full name"
@@ -253,7 +234,7 @@ function SignInContent() {
                   id="b-orgName"
                   type="text"
                   value={orgName}
-                  onChange={(e) => setOrgName(e.target.value)}
+                  onChange={(event) => setOrgName(event.target.value)}
                   required
                   className="input w-full"
                   placeholder="Acme Corp"
@@ -270,7 +251,7 @@ function SignInContent() {
                   id="b-orgSlug"
                   type="text"
                   value={orgSlug}
-                  onChange={(e) => setOrgSlug(e.target.value)}
+                  onChange={(event) => setOrgSlug(event.target.value)}
                   required
                   pattern="[a-z0-9-]+"
                   className="input w-full"
@@ -321,29 +302,11 @@ export default function SignInPage() {
     <main className="flex min-h-screen flex-col items-center justify-center bg-[rgb(var(--color-bg-primary))]">
       <Suspense
         fallback={
-          <p className="text-sm text-[rgb(var(--color-text-tertiary))]">Loading...</p>
+          <p className="text-sm text-[rgb(var(--color-text-tertiary))]">Loading sign-in...</p>
         }
       >
         <SignInContent />
       </Suspense>
     </main>
-  );
-}
-
-export default function SignInPage() {
-  return (
-    <Suspense
-      fallback={
-        <main className="flex min-h-screen flex-col items-center justify-center bg-[rgb(var(--color-bg-primary))]">
-          <div className="relative z-10 w-full max-w-md px-4">
-            <div className="rounded-xl border border-[rgb(var(--color-border-primary))] bg-[rgb(var(--color-bg-secondary))] p-8 shadow-lg shadow-black/5">
-              <p className="text-sm text-[rgb(var(--color-text-secondary))]">Loading sign-in...</p>
-            </div>
-          </div>
-        </main>
-      }
-    >
-      <SignInPageContent />
-    </Suspense>
   );
 }

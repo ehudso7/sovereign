@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint src/",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "next build"
   },
   "dependencies": {
     "@sovereign/config": "workspace:*",
