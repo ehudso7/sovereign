@@ -59,12 +59,23 @@ export function resolveCorsConfig(env: NodeJS.ProcessEnv = process.env): CorsCon
 
   // In production, fall back to APP_BASE_URL so the web frontend can reach
   // the API even when CORS_ALLOWED_ORIGINS is not explicitly configured.
+  // Automatically include both the bare domain and the www. variant so that
+  // deployments using either will work without extra configuration.
   if (env.NODE_ENV === 'production' && env.APP_BASE_URL) {
     const fallback = normalizeOrigin(env.APP_BASE_URL);
     if (fallback) {
+      const origins = new Set([fallback]);
+      try {
+        const parsed = new URL(fallback);
+        if (parsed.hostname.startsWith('www.')) {
+          origins.add(normalizeOrigin(`${parsed.protocol}//${parsed.hostname.slice(4)}${parsed.port ? `:${parsed.port}` : ''}`));
+        } else if (!parsed.hostname.startsWith('localhost')) {
+          origins.add(normalizeOrigin(`${parsed.protocol}//www.${parsed.hostname}${parsed.port ? `:${parsed.port}` : ''}`));
+        }
+      } catch { /* keep only the original */ }
       return {
         allowAnyOrigin: false,
-        allowedOrigins: new Set([fallback]),
+        allowedOrigins: origins,
       };
     }
   }
