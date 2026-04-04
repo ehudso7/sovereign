@@ -1,0 +1,97 @@
+name: Railway Backend Deploy
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+
+concurrency:
+  group: railway-backend-${{ startsWith(github.ref, 'refs/tags/v') && 'production' || 'staging' }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  ci:
+    name: CI Gate
+    uses: ./.github/workflows/ci.yml
+
+  deploy-backend:
+    name: Deploy Backend (Railway)
+    runs-on: ubuntu-latest
+    needs: [ci]
+    environment:
+      name: ${{ startsWith(github.ref, 'refs/tags/v') && 'production' || 'staging' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+      - name: Deploy API
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: railway up --service sovereign-api --detach
+      - name: Deploy Worker Orchestrator
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: railway up --service sovereign-worker-orchestrator --detach
+      - name: Deploy Worker Browser
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: railway up --service sovereign-worker-browser --detach
+      - name: Deploy Gateway MCP
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: railway up --service sovereign-gateway-mcp --detach
+      - name: Save deploy evidence
+        run: |
+          mkdir -p evidence
+          echo "services=api,worker-orchestrator,worker-browser,gateway-mcp" >> evidence/deploy-backend.txt
+          echo "environment=${{ startsWith(github.ref, 'refs/tags/v') && 'production' || 'staging' }}" >> evidence/deploy-backend.txt
+          echo "sha=${{ github.sha }}" >> evidence/deploy-backend.txt
+          echo "timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> evidence/deploy-backend.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: railway-deploy-evidence-${{ startsWith(github.ref, 'refs/tags/v') && 'production' || 'staging' }}
+          path: evidence/
+
+  post-deploy:
+    name: Post-Deploy Migrations
+    runs-on: ubuntu-latest
+    needs: [deploy-backend]
+    environment:
+      name: ${{ startsWith(github.ref, 'refs/tags/v') && 'production' || 'staging' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build DB package
+        run: pnpm build --filter=@sovereign/db...
+      - name: Run database migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: pnpm db:migrate
+
+  smoke:
+    name: Backend Smoke Tests
+    runs-on: ubuntu-latest
+    needs: [deploy-backend, post-deploy]
+    environment:
+      name: ${{ startsWith(github.ref, 'refs/tags/v') && 'production' || 'staging' }}
+    steps:
+      - name: Run API health check
+        env:
+          API_BASE_URL: ${{ vars.API_BASE_URL }}
+        run: |
+          HTTP_CODE=$(curl -s -o /tmp/health.json -w "%{http_code}" "${API_BASE_URL}/health" || echo "000")
+          cat /tmp/health.json 2>/dev/null || true
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Health check failed with status ${HTTP_CODE}"
+            exit 1
+          fi
