@@ -125,6 +125,9 @@ export function formatTemporalConnectionHints(error: unknown, config: TemporalRu
     hints.add(
       `TEMPORAL_ADDRESS "${config.address}" did not resolve in DNS. Verify the exact namespace endpoint from Temporal Cloud connection info; being set is not enough if the hostname itself is wrong.`,
     );
+    hints.add(
+      "If this environment uses Railway-hosted Temporal instead of Temporal Cloud, use the Railway internal host (for example `temporal.railway.internal:7233`) and set TEMPORAL_NAMESPACE to `default`.",
+    );
   }
 
   if (config.usesCloudEndpoint && !config.apiKey && !(config.tlsCert && config.tlsKey)) {

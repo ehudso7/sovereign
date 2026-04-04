@@ -60,5 +60,6 @@ describe("temporal-config", () => {
 
     expect(hints.some((hint) => hint.includes("did not resolve in DNS"))).toBe(true);
     expect(hints.some((hint) => hint.includes("Normalized TEMPORAL_ADDRESS"))).toBe(true);
+    expect(hints.some((hint) => hint.includes("Railway-hosted Temporal"))).toBe(true);
   });
 });
