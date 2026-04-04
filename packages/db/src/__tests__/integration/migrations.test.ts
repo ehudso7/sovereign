@@ -13,6 +13,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { Pool } from "pg";
 import { runMigrations, getMigrationStatus } from "../../migrate.js";
+import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import {
   buildPostgresUrl,
@@ -20,6 +21,10 @@ import {
 } from "./test-db-config.js";
 
 const migrationsDir = join(import.meta.dirname ?? __dirname, "..", "..", "migrations");
+const expectedMigrationVersions = readdirSync(migrationsDir)
+  .filter((file) => file.endsWith(".sql"))
+  .sort()
+  .map((file) => file.replace(".sql", ""));
 
 function qident(value: string): string {
   return `"${value.replace(/"/g, '""')}"`;
@@ -106,21 +111,9 @@ describe("Migration runner against real PostgreSQL", () => {
   it("creates schema_migrations tracking table with correct entries", async () => {
     const status = await getMigrationStatus(testDbUrl);
 
-    expect(status).toHaveLength(12);
-    expect(status[0]!.version).toBe("001_phase2_identity");
-    expect(status[1]!.version).toBe("002_row_level_security");
-    expect(status[2]!.version).toBe("003_phase4_agents");
-    expect(status[3]!.version).toBe("004_phase5_runs");
-    expect(status[4]!.version).toBe("005_phase6_connectors");
-    expect(status[5]!.version).toBe("006_phase7_browser");
-    expect(status[6]!.version).toBe("007_phase8_memory");
-    expect(status[7]!.version).toBe("008_phase9_alerts");
-    expect(status[8]!.version).toBe("009_phase10_policies");
-    expect(status[9]!.version).toBe("010_phase11_revenue");
-    expect(status[10]!.version).toBe("011_phase12_billing");
-    expect(status[11]!.version).toBe("012_performance_optimization");
-    expect(status[0]!.appliedAt).toBeTruthy();
-    expect(status[1]!.appliedAt).toBeTruthy();
+    expect(status).toHaveLength(expectedMigrationVersions.length);
+    expect(status.map((migration) => migration.version)).toEqual(expectedMigrationVersions);
+    expect(status.every((migration) => Boolean(migration.appliedAt))).toBe(true);
   });
 
   it("skips already-applied migrations on rerun (idempotent)", async () => {

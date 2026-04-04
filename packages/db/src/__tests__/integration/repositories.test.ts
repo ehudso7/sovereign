@@ -63,6 +63,17 @@ describe("PgUserRepo", () => {
     expect(found!.passwordHash).toBe("hashed123");
   });
 
+  it("normalizes email lookups before querying", async () => {
+    const db = getTestDb();
+    const repo = new PgUserRepo(db.unscoped());
+
+    await repo.create({ email: "caps@test.com", name: "Caps" });
+
+    const found = await repo.getByEmail(" CAPS@Test.com ");
+    expect(found).not.toBeNull();
+    expect(found!.email).toBe("caps@test.com");
+  });
+
   it("returns null for non-existent user", async () => {
     const db = getTestDb();
     const repo = new PgUserRepo(db.unscoped());

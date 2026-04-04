@@ -1,5 +1,4 @@
 import Fastify from "fastify";
-import fastifyCors from "@fastify/cors";
 import type { FastifyInstance } from "fastify";
 import { initDb, type DatabaseClient } from "@sovereign/db";
 import { initServices } from "./services/index.js";
@@ -23,13 +22,19 @@ import { billingRoutes } from "./routes/billing.js";
 import { onboardingRoutes } from "./routes/onboarding.js";
 import { devRoutes } from "./routes/dev.js";
 import type { AuthConfig } from "@sovereign/core";
+import { registerCors } from "./lib/cors.js";
 
 // ---------------------------------------------------------------------------
 // App builder — used by both production start and E2E tests
 // ---------------------------------------------------------------------------
 
 export function buildApp(authConfig: AuthConfig, db: DatabaseClient, opts?: { logger?: boolean }): FastifyInstance {
-  const app = Fastify({ logger: opts?.logger ?? false });
+  const app = Fastify({
+    logger: opts?.logger ?? false,
+    trustProxy: true,
+  });
+
+  registerCors(app);
 
   // Security headers
   app.addHook("onSend", async (_request, reply) => {
@@ -41,14 +46,6 @@ export function buildApp(authConfig: AuthConfig, db: DatabaseClient, opts?: { lo
     if (process.env.NODE_ENV === "production") {
       reply.header("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
     }
-  });
-
-  // CORS — allow configured origins
-  const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS ?? "http://localhost:3000").split(",").map(s => s.trim());
-  app.register(fastifyCors, {
-    origin: allowedOrigins,
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   });
 
   // Rate limiting (requires REDIS_URL; skipped gracefully if unavailable)
@@ -107,6 +104,12 @@ if (isDirectRun) {
   }
   if (isProduction && !process.env.SOVEREIGN_SECRET_KEY) {
     throw new Error("SOVEREIGN_SECRET_KEY must be set in production. Refusing to start without encryption key.");
+  }
+  if (authMode === "workos" && !process.env.WORKOS_API_KEY) {
+    throw new Error("WORKOS_API_KEY must be set when AUTH_MODE=workos.");
+  }
+  if (authMode === "workos" && !process.env.WORKOS_CLIENT_ID) {
+    throw new Error("WORKOS_CLIENT_ID must be set when AUTH_MODE=workos.");
   }
 
   const authConfig: AuthConfig = {
