@@ -397,10 +397,14 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               {isDark ? <IconSun size={18} /> : <IconMoon size={18} />}
             </button>
-            <button className="relative rounded-md p-2 text-[rgb(var(--color-text-tertiary))] transition-colors hover:bg-[rgb(var(--color-bg-tertiary))] hover:text-[rgb(var(--color-text-primary))]">
+            <Link
+              href="/mission-control/alerts"
+              className="relative rounded-md p-2 text-[rgb(var(--color-text-tertiary))] transition-colors hover:bg-[rgb(var(--color-bg-tertiary))] hover:text-[rgb(var(--color-text-primary))]"
+              title="Alerts"
+            >
               <IconBell size={18} />
               <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-[rgb(var(--color-error))]" />
-            </button>
+            </Link>
           </div>
         </header>
 

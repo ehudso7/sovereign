@@ -15,26 +15,41 @@ import {
 } from "@/components/icons";
 import Link from "next/link";
 
+/* ── Types matching the API response from mission-control.service.ts ── */
+
+interface RunStatusCounts {
+  total: number;
+  completed: number;
+  failed: number;
+  running: number;
+  queued: number;
+  cancelled: number;
+  paused: number;
+}
+
 interface Overview {
-  runCounts: Record<string, number>;
-  avgQueueWaitMs: number;
-  avgDurationMs: number;
-  failureRate: number;
-  tokenUsage: { prompt: number; completion: number; total: number };
-  estimatedCostUsd: number;
+  runs: RunStatusCounts;
+  avgQueueWaitMs: number | null;
+  avgDurationMs: number | null;
+  failureRate: number | null; // already a percentage (e.g. 4.25 means 4.25%)
+  tokenUsage: { inputTokens: number; outputTokens: number; totalTokens: number };
+  estimatedCostCents: number;
   runsWithTools: number;
   runsWithBrowser: number;
   runsWithMemory: number;
   openAlerts: number;
-  recentFailures: {
+  recentFailures: Array<{
     id: string;
-    agentName?: string;
+    agentId?: string;
+    status: string;
     error?: string;
-    failedAt: string;
-  }[];
+    createdAt: string;
+    completedAt?: string;
+  }>;
 }
 
-function formatMs(ms: number): string {
+function formatMs(ms: number | null | undefined): string {
+  if (ms == null) return "--";
   if (ms < 1000) return `${Math.round(ms)}ms`;
   if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
   return `${(ms / 60000).toFixed(1)}m`;
@@ -48,6 +63,7 @@ function statusForRunStatus(status: string): string {
     failed: "status-dot-error",
     cancelled: "status-dot-neutral",
     pending_approval: "status-dot-warning",
+    paused: "status-dot-warning",
   };
   return map[status] ?? "status-dot-neutral";
 }
@@ -94,12 +110,23 @@ export default function MissionControlPage() {
 
   if (isLoading || !user) return null;
 
-  const totalRuns = overview
-    ? Object.values(overview.runCounts).reduce((a, b) => a + b, 0)
-    : 0;
+  const totalRuns = overview?.runs.total ?? 0;
   const activeRuns = overview
-    ? (overview.runCounts["running"] ?? 0) + (overview.runCounts["queued"] ?? 0)
+    ? (overview.runs.running ?? 0) + (overview.runs.queued ?? 0)
     : 0;
+  const failureRate = overview?.failureRate ?? 0; // already a percentage
+
+  // Convert status counts object to entries for the status grid
+  const statusEntries: [string, number][] = overview
+    ? [
+        ["completed", overview.runs.completed],
+        ["running", overview.runs.running],
+        ["queued", overview.runs.queued],
+        ["failed", overview.runs.failed],
+        ["cancelled", overview.runs.cancelled],
+        ["paused", overview.runs.paused],
+      ]
+    : [];
 
   return (
     <AppShell>
@@ -216,16 +243,16 @@ export default function MissionControlPage() {
                 <span className="stat-label">Error Rate</span>
                 <div className="flex items-center gap-2">
                   <span className="stat-value">
-                    {(overview.failureRate * 100).toFixed(1)}%
+                    {failureRate.toFixed(1)}%
                   </span>
-                  {overview.failureRate > 0.05 ? (
+                  {failureRate > 5 ? (
                     <IconArrowUp size={14} className="text-[rgb(var(--color-error))]" />
                   ) : (
                     <IconArrowDown size={14} className="text-[rgb(var(--color-success))]" />
                   )}
                 </div>
                 <span className="text-xs text-[rgb(var(--color-text-tertiary))]">
-                  {overview.failureRate > 0.05 ? "above threshold" : "healthy"}
+                  {failureRate > 5 ? "above threshold" : "healthy"}
                 </span>
               </div>
               <div className="stat-card">
@@ -243,7 +270,7 @@ export default function MissionControlPage() {
                 <h2 className="section-title">Run Status Breakdown</h2>
               </div>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-6">
-                {Object.entries(overview.runCounts).map(([status, count]) => (
+                {statusEntries.map(([status, count]) => (
                   <div
                     key={status}
                     className="flex flex-col gap-1.5 rounded-lg bg-[rgb(var(--color-bg-secondary))] p-3"
@@ -269,26 +296,26 @@ export default function MissionControlPage() {
                 <div className="section-header mb-4">
                   <h2 className="section-title">Token Usage</h2>
                   <span className="text-sm font-semibold text-[rgb(var(--color-brand))]">
-                    ${overview.estimatedCostUsd.toFixed(2)}
+                    ${(overview.estimatedCostCents / 100).toFixed(2)}
                   </span>
                 </div>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between rounded-lg bg-[rgb(var(--color-bg-secondary))] p-3">
-                    <span className="text-sm text-[rgb(var(--color-text-secondary))]">Prompt</span>
+                    <span className="text-sm text-[rgb(var(--color-text-secondary))]">Input</span>
                     <span className="font-mono text-sm font-medium text-[rgb(var(--color-text-primary))]">
-                      {overview.tokenUsage.prompt.toLocaleString()}
+                      {overview.tokenUsage.inputTokens.toLocaleString()}
                     </span>
                   </div>
                   <div className="flex items-center justify-between rounded-lg bg-[rgb(var(--color-bg-secondary))] p-3">
-                    <span className="text-sm text-[rgb(var(--color-text-secondary))]">Completion</span>
+                    <span className="text-sm text-[rgb(var(--color-text-secondary))]">Output</span>
                     <span className="font-mono text-sm font-medium text-[rgb(var(--color-text-primary))]">
-                      {overview.tokenUsage.completion.toLocaleString()}
+                      {overview.tokenUsage.outputTokens.toLocaleString()}
                     </span>
                   </div>
                   <div className="flex items-center justify-between rounded-lg border border-[rgb(var(--color-border-secondary))] p-3">
                     <span className="text-sm font-medium text-[rgb(var(--color-text-primary))]">Total</span>
                     <span className="font-mono text-sm font-bold text-[rgb(var(--color-text-primary))]">
-                      {overview.tokenUsage.total.toLocaleString()}
+                      {overview.tokenUsage.totalTokens.toLocaleString()}
                     </span>
                   </div>
                 </div>
@@ -331,7 +358,7 @@ export default function MissionControlPage() {
               </div>
             </div>
 
-            {/* ── System Health + Recent Alerts ── */}
+            {/* ── System Health + Recent Failures ── */}
             <div className="grid gap-6 lg:grid-cols-2">
               {/* System Health Cards */}
               <div className="card">
@@ -343,9 +370,9 @@ export default function MissionControlPage() {
                     <div className="flex items-center gap-2">
                       <span
                         className={
-                          overview.failureRate < 0.05
+                          failureRate < 5
                             ? "status-dot-success-pulse"
-                            : overview.failureRate < 0.15
+                            : failureRate < 15
                               ? "status-dot-warning"
                               : "status-dot-error"
                         }
@@ -356,16 +383,16 @@ export default function MissionControlPage() {
                     </div>
                     <span
                       className={
-                        overview.failureRate < 0.05
+                        failureRate < 5
                           ? "badge-success"
-                          : overview.failureRate < 0.15
+                          : failureRate < 15
                             ? "badge-warning"
                             : "badge-error"
                       }
                     >
-                      {overview.failureRate < 0.05
+                      {failureRate < 5
                         ? "Healthy"
-                        : overview.failureRate < 0.15
+                        : failureRate < 15
                           ? "Degraded"
                           : "Unhealthy"}
                     </span>
@@ -374,7 +401,7 @@ export default function MissionControlPage() {
                     <div className="flex items-center gap-2">
                       <span
                         className={
-                          overview.avgQueueWaitMs < 5000
+                          (overview.avgQueueWaitMs ?? 0) < 5000
                             ? "status-dot-success-pulse"
                             : "status-dot-warning"
                         }
@@ -385,7 +412,7 @@ export default function MissionControlPage() {
                     </div>
                     <span
                       className={
-                        overview.avgQueueWaitMs < 5000 ? "badge-success" : "badge-warning"
+                        (overview.avgQueueWaitMs ?? 0) < 5000 ? "badge-success" : "badge-warning"
                       }
                     >
                       {formatMs(overview.avgQueueWaitMs)}
@@ -417,7 +444,7 @@ export default function MissionControlPage() {
                 </div>
               </div>
 
-              {/* Recent Alerts / Failures */}
+              {/* Recent Failures */}
               <div className="card">
                 <div className="section-header mb-4">
                   <h2 className="section-title">Recent Failures</h2>
@@ -449,7 +476,7 @@ export default function MissionControlPage() {
                         <span className="status-dot-error mt-1.5 shrink-0" />
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-[rgb(var(--color-text-primary))] group-hover:text-[rgb(var(--color-error))] transition-colors">
-                            {f.agentName ?? f.id.slice(0, 12) + "..."}
+                            {f.id.slice(0, 12) + "..."}
                           </p>
                           {f.error && (
                             <p className="mt-0.5 truncate text-xs text-[rgb(var(--color-text-tertiary))]">
@@ -458,7 +485,7 @@ export default function MissionControlPage() {
                           )}
                           <div className="mt-1 flex items-center gap-1 text-xs text-[rgb(var(--color-text-tertiary))]">
                             <IconClock size={12} />
-                            {new Date(f.failedAt).toLocaleString()}
+                            {new Date(f.completedAt ?? f.createdAt).toLocaleString()}
                           </div>
                         </div>
                       </Link>
