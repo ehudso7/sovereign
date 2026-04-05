@@ -221,7 +221,11 @@ export class WorkosAuthService {
         });
       }
 
-      return this.errorRedirect(returnTo, "No organization membership was found for this account.");
+      return this.errorRedirect(
+        returnTo,
+        "Your account exists but is not a member of any organization. " +
+        "Ask an organization admin to invite you, then sign in again.",
+      );
     } catch (error) {
       return this.errorRedirect(returnTo, this.getErrorMessage(error, "WorkOS authentication failed."));
     }
@@ -367,7 +371,19 @@ export class WorkosAuthService {
   }
 
   private async acceptPendingInvitations(user: User): Promise<Result<void>> {
-    const invitations = await this.invitationRepo.listPendingForEmail(user.email);
+    let invitations;
+    try {
+      invitations = await this.invitationRepo.listPendingForEmail(user.email);
+    } catch (error: unknown) {
+      // Gracefully handle missing invitation_lookup table (migration 014
+      // not yet applied).  This is non-fatal — the user simply won't get
+      // auto-joined to orgs via pending invitations.
+      const msg = error instanceof Error ? error.message : "";
+      if (msg.includes("invitation_lookup") && msg.includes("does not exist")) {
+        return ok(undefined);
+      }
+      throw error;
+    }
 
     for (const invitation of invitations) {
       const membership = await this.membershipRepo.getForUser(invitation.orgId, user.id);
