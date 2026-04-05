@@ -28,13 +28,25 @@ export default function CreateMemoryPage() {
     e.preventDefault();
     if (!token || !title || !content) return;
 
+    if (scopeType !== "org" && !scopeId) {
+      setError("Scope ID is required for non-org scope types. Please provide a valid UUID.");
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
 
     const result = await apiFetch<{ id: string }>("/api/v1/memories", {
       method: "POST",
       token,
-      body: JSON.stringify({ title, summary, content, kind, scopeType, scopeId: scopeId || undefined }),
+      body: JSON.stringify({
+        title,
+        summary: summary || undefined,
+        content,
+        kind,
+        scopeType,
+        scopeId: scopeId || undefined,
+      }),
     });
 
     if (result.ok) {
@@ -79,12 +91,17 @@ export default function CreateMemoryPage() {
               <option value="user">User</option>
             </select>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Scope ID (optional, defaults to org)</label>
-            <input type="text" value={scopeId} onChange={(e) => setScopeId(e.target.value)}
-              className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
-              placeholder="UUID of scope target" />
-          </div>
+          {scopeType !== "org" && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Scope ID <span className="text-red-500">*</span>
+              </label>
+              <input type="text" value={scopeId} onChange={(e) => setScopeId(e.target.value)}
+                required
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                placeholder="UUID of the project, agent, or user" />
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700">Title</label>
             <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required

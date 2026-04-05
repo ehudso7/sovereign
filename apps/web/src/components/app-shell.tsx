@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/lib/auth-context";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import type { ReactNode } from "react";
 import {
@@ -219,17 +219,47 @@ function SearchBar({ collapsed }: { collapsed: boolean }) {
 // ---------------------------------------------------------------------------
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { user, org, signOut } = useAuth();
+  const { user, org, token, signOut } = useAuth();
   const { isDark, toggle } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [alertCount, setAlertCount] = useState(0);
+  const [bellOpen, setBellOpen] = useState(false);
+  const router = useRouter();
 
   // Close mobile nav on route change
   const pathname = usePathname();
   useEffect(() => {
     setMobileOpen(false);
+    setBellOpen(false);
   }, [pathname]);
+
+  // Fetch open alert count
+  useEffect(() => {
+    if (!token) return;
+    const fetchAlerts = async () => {
+      try {
+        const isCookieAuth = token === "__cookie_session__";
+        const headers: Record<string, string> = {};
+        if (!isCookieAuth) headers.Authorization = `Bearer ${token}`;
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL || ""}/api/v1/mission-control/alerts?status=open`,
+          { headers, credentials: isCookieAuth ? "include" : "same-origin" },
+        );
+        if (res.ok) {
+          const json = await res.json();
+          const alerts = json.data ?? [];
+          setAlertCount(Array.isArray(alerts) ? alerts.length : 0);
+        }
+      } catch {
+        // Silently ignore — bell just won't show count
+      }
+    };
+    fetchAlerts();
+    const interval = setInterval(fetchAlerts, 60_000);
+    return () => clearInterval(interval);
+  }, [token]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-[rgb(var(--color-bg-primary))]">
@@ -397,10 +427,54 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               {isDark ? <IconSun size={18} /> : <IconMoon size={18} />}
             </button>
-            <button className="relative rounded-md p-2 text-[rgb(var(--color-text-tertiary))] transition-colors hover:bg-[rgb(var(--color-bg-tertiary))] hover:text-[rgb(var(--color-text-primary))]">
-              <IconBell size={18} />
-              <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-[rgb(var(--color-error))]" />
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setBellOpen(!bellOpen)}
+                className="relative rounded-md p-2 text-[rgb(var(--color-text-tertiary))] transition-colors hover:bg-[rgb(var(--color-bg-tertiary))] hover:text-[rgb(var(--color-text-primary))]"
+                title={alertCount > 0 ? `${alertCount} open alert${alertCount !== 1 ? "s" : ""}` : "No open alerts"}
+              >
+                <IconBell size={18} />
+                {alertCount > 0 && (
+                  <span className="absolute right-1 top-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-[rgb(var(--color-error))] px-1 text-[10px] font-bold leading-none text-white">
+                    {alertCount > 99 ? "99+" : alertCount}
+                  </span>
+                )}
+              </button>
+              {bellOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setBellOpen(false)} />
+                  <div className="absolute right-0 top-full z-50 mt-1 w-72 rounded-lg border border-[rgb(var(--color-border-primary))] bg-[rgb(var(--color-bg-primary))] shadow-xl">
+                    <div className="flex items-center justify-between border-b border-[rgb(var(--color-border-primary))] px-4 py-3">
+                      <span className="text-sm font-semibold text-[rgb(var(--color-text-primary))]">Notifications</span>
+                      {alertCount > 0 && (
+                        <span className="rounded-full bg-[rgb(var(--color-error))] px-2 py-0.5 text-[10px] font-bold text-white">
+                          {alertCount}
+                        </span>
+                      )}
+                    </div>
+                    <div className="p-3">
+                      {alertCount > 0 ? (
+                        <p className="text-sm text-[rgb(var(--color-text-secondary))]">
+                          You have {alertCount} open alert{alertCount !== 1 ? "s" : ""} that need attention.
+                        </p>
+                      ) : (
+                        <p className="text-sm text-[rgb(var(--color-text-tertiary))]">
+                          No open alerts. All systems healthy.
+                        </p>
+                      )}
+                    </div>
+                    <div className="border-t border-[rgb(var(--color-border-primary))] p-2">
+                      <button
+                        onClick={() => { setBellOpen(false); router.push("/mission-control/alerts"); }}
+                        className="w-full rounded-md px-3 py-2 text-center text-sm font-medium text-[rgb(var(--color-brand))] transition-colors hover:bg-[rgb(var(--color-bg-secondary))]"
+                      >
+                        View all alerts
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </header>
 

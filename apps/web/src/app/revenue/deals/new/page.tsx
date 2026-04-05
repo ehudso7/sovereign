@@ -30,14 +30,27 @@ export default function NewDealPage() {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
+    const parsedValue = valueCents ? Math.floor(Number(valueCents)) : undefined;
+    if (parsedValue !== undefined && (isNaN(parsedValue) || parsedValue < 0 || parsedValue > Number.MAX_SAFE_INTEGER)) {
+      setError("Deal value must be a valid whole number (max ~$90 trillion in cents).");
+      setSubmitting(false);
+      return;
+    }
+    const parsedProb = probability ? Math.floor(Number(probability)) : undefined;
+    if (parsedProb !== undefined && (isNaN(parsedProb) || parsedProb < 0 || parsedProb > 100)) {
+      setError("Probability must be between 0 and 100.");
+      setSubmitting(false);
+      return;
+    }
+
     const result = await apiFetch("/api/v1/revenue/deals", {
       method: "POST",
       token: token ?? undefined,
       body: JSON.stringify({
         name,
         stage,
-        valueCents: valueCents ? parseInt(valueCents, 10) : undefined,
-        probability: probability ? parseInt(probability, 10) : undefined,
+        valueCents: parsedValue,
+        probability: parsedProb,
       }),
     });
     setSubmitting(false);
@@ -154,6 +167,8 @@ export default function NewDealPage() {
               <input
                 id="valueCents"
                 type="number"
+                min="0"
+                max="9007199254740991"
                 value={valueCents}
                 onChange={(e) => setValueCents(e.target.value)}
                 className="input"
