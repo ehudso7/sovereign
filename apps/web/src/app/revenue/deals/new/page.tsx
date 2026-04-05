@@ -45,6 +45,12 @@ export default function NewDealPage() {
     }
 
     setSubmitting(true);
+    const parsedValue = valueCents ? parseInt(valueCents, 10) : undefined;
+    if (parsedValue !== undefined && (isNaN(parsedValue) || parsedValue > 9007199254740991 || parsedValue < 0)) {
+      setError("Value must be a whole number between 0 and 9,007,199,254,740,991");
+      setSubmitting(false);
+      return;
+    }
     const result = await apiFetch("/api/v1/revenue/deals", {
       method: "POST",
       token: token ?? undefined,

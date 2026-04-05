@@ -26,6 +26,8 @@ export default function CreateMemoryPage() {
     if (!isLoading && !user) router.push("/auth/sign-in");
   }, [isLoading, user, router]);
 
+  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token || !title || !content) return;

@@ -15,16 +15,18 @@ import {
 } from "@/components/icons";
 import Link from "next/link";
 
+interface RunCounts {
+  total: number;
+  completed: number;
+  failed: number;
+  running: number;
+  queued: number;
+  cancelled: number;
+  paused: number;
+}
+
 interface Overview {
-  runs: {
-    total: number;
-    completed: number;
-    failed: number;
-    running: number;
-    queued: number;
-    cancelled: number;
-    paused: number;
-  };
+  runs: RunCounts;
   avgQueueWaitMs: number | null;
   avgDurationMs: number | null;
   failureRate: number | null;
@@ -108,6 +110,7 @@ export default function MissionControlPage() {
   const activeRuns = overview
     ? (overview.runs.running ?? 0) + (overview.runs.queued ?? 0)
     : 0;
+  const failureRate = overview?.failureRate ?? 0;
 
   return (
     <AppShell>
