@@ -24,9 +24,16 @@ export default function CreateMemoryPage() {
     if (!isLoading && !user) router.push("/auth/sign-in");
   }, [isLoading, user, router]);
 
+  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token || !title || !content) return;
+
+    if (scopeId && !UUID_REGEX.test(scopeId)) {
+      setError("Scope ID must be a valid UUID (e.g., 550e8400-e29b-41d4-a716-446655440000)");
+      return;
+    }
 
     setSubmitting(true);
     setError(null);
@@ -80,10 +87,12 @@ export default function CreateMemoryPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Scope ID (optional, defaults to org)</label>
+            <label className="block text-sm font-medium text-gray-700">Scope ID <span className="font-normal text-gray-400">(optional, defaults to your org)</span></label>
             <input type="text" value={scopeId} onChange={(e) => setScopeId(e.target.value)}
               className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
-              placeholder="UUID of scope target" />
+              placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000"
+              pattern="[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}" />
+            <p className="mt-1 text-xs text-gray-400">Must be a valid UUID. Leave empty to use your organization ID.</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">Title</label>

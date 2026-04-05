@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@/lib/auth-context";
+import { apiFetch } from "@/lib/api";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
@@ -219,17 +220,35 @@ function SearchBar({ collapsed }: { collapsed: boolean }) {
 // ---------------------------------------------------------------------------
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { user, org, signOut } = useAuth();
+  const { user, org, token, signOut } = useAuth();
   const { isDark, toggle } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [alerts, setAlerts] = useState<{ id: string; title: string; severity: string; createdAt: string; status: string }[]>([]);
+  const [alertCount, setAlertCount] = useState(0);
 
   // Close mobile nav on route change
   const pathname = usePathname();
   useEffect(() => {
     setMobileOpen(false);
+    setNotifOpen(false);
   }, [pathname]);
+
+  // Load recent alerts for notification bell
+  useEffect(() => {
+    if (!token) return;
+    apiFetch<{ id: string; title: string; severity: string; createdAt: string; status: string }[]>(
+      "/api/v1/mission-control/alerts?status=open&limit=5",
+      { token },
+    ).then((result) => {
+      if (result.ok) {
+        setAlerts(result.data);
+        setAlertCount(result.data.length);
+      }
+    });
+  }, [token]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-[rgb(var(--color-bg-primary))]">
@@ -397,10 +416,53 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               {isDark ? <IconSun size={18} /> : <IconMoon size={18} />}
             </button>
-            <button className="relative rounded-md p-2 text-[rgb(var(--color-text-tertiary))] transition-colors hover:bg-[rgb(var(--color-bg-tertiary))] hover:text-[rgb(var(--color-text-primary))]">
-              <IconBell size={18} />
-              <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-[rgb(var(--color-error))]" />
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setNotifOpen(!notifOpen)}
+                className="relative rounded-md p-2 text-[rgb(var(--color-text-tertiary))] transition-colors hover:bg-[rgb(var(--color-bg-tertiary))] hover:text-[rgb(var(--color-text-primary))]"
+              >
+                <IconBell size={18} />
+                {alertCount > 0 && (
+                  <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-[rgb(var(--color-error))]" />
+                )}
+              </button>
+              {notifOpen && (
+                <div className="absolute right-0 top-full z-50 mt-1 w-80 rounded-lg border border-[rgb(var(--color-border-primary))] bg-[rgb(var(--color-bg-primary))] shadow-lg">
+                  <div className="flex items-center justify-between border-b border-[rgb(var(--color-border-primary))] px-4 py-3">
+                    <span className="text-sm font-semibold text-[rgb(var(--color-text-primary))]">Notifications</span>
+                    <Link
+                      href="/mission-control/alerts"
+                      className="text-xs font-medium text-[rgb(var(--color-brand))] hover:underline"
+                      onClick={() => setNotifOpen(false)}
+                    >
+                      View all
+                    </Link>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto">
+                    {alerts.length === 0 ? (
+                      <div className="px-4 py-6 text-center text-sm text-[rgb(var(--color-text-tertiary))]">
+                        No open alerts
+                      </div>
+                    ) : (
+                      alerts.map((alert) => (
+                        <Link
+                          key={alert.id}
+                          href="/mission-control/alerts"
+                          className="flex items-start gap-3 border-b border-[rgb(var(--color-border-secondary))] px-4 py-3 transition-colors hover:bg-[rgb(var(--color-bg-secondary))] last:border-0"
+                          onClick={() => setNotifOpen(false)}
+                        >
+                          <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${alert.severity === "critical" ? "bg-[rgb(var(--color-error))]" : "bg-[rgb(var(--color-warning))]"}`} />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm text-[rgb(var(--color-text-primary))]">{alert.title}</p>
+                            <p className="text-xs text-[rgb(var(--color-text-tertiary))]">{new Date(alert.createdAt).toLocaleString()}</p>
+                          </div>
+                        </Link>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
