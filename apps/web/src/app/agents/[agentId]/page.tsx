@@ -239,6 +239,22 @@ export default function AgentDetailPage() {
     }
   };
 
+  const handlePublishLatest = async () => {
+    if (!token || versions.length === 0) return;
+    const latestVersion = versions[0];
+    if (!latestVersion || latestVersion.published) return;
+    setError(null);
+    const result = await apiFetch<AgentVersion>(
+      `/api/v1/agents/${agentId}/versions/${latestVersion.id}/publish`,
+      { method: "POST", token },
+    );
+    if (result.ok) {
+      await loadAgent();
+    } else {
+      setError(result.error.message);
+    }
+  };
+
   if (isLoading || !user) return null;
 
   if (loading) {
@@ -449,6 +465,14 @@ export default function AgentDetailPage() {
                     className="rounded-lg border border-[rgb(var(--color-border-primary))] bg-[rgb(var(--color-bg-primary))] px-3.5 py-2 text-sm font-medium text-[rgb(var(--color-text-secondary))] transition-colors hover:bg-[rgb(var(--color-bg-secondary))] hover:text-[rgb(var(--color-text-primary))]"
                   >
                     Edit
+                  </button>
+                )}
+                {canPublish && agent.status === "draft" && versions.length > 0 && !publishedVersion && (
+                  <button
+                    onClick={handlePublishLatest}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[rgb(var(--color-success))] px-3.5 py-2 text-sm font-medium text-white shadow-sm transition-all duration-150 hover:opacity-90"
+                  >
+                    Publish v{versions[0]?.version ?? 1}
                   </button>
                 )}
                 {canPublish && agent.status === "published" && (
