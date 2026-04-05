@@ -3,7 +3,7 @@
 import { useAuth } from "@/lib/auth-context";
 import { apiFetch } from "@/lib/api";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import type { ReactNode } from "react";
 import {

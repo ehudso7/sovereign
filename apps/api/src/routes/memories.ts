@@ -18,7 +18,7 @@ const createMemorySchema = z.object({
   scopeId: z.string().uuid(),
   kind: z.enum(["semantic", "episodic", "procedural"]),
   title: z.string().min(1).max(500),
-  summary: z.string().min(1).max(2000),
+  summary: z.string().max(2000).optional(),
   content: z.string().min(1),
   metadata: z.record(z.unknown()).optional(),
   sourceRunId: z.string().uuid().optional(),
@@ -76,13 +76,23 @@ export async function memoryRoutes(server: FastifyInstance): Promise<void> {
 
       const services = getServices();
       const memoryService = services.memoryForOrg(request.session!.orgId);
+
+      // Default scopeId to orgId when scope is "org" and no scopeId provided
+      const resolvedScopeId = body.data.scopeId || (body.data.scopeType === "org" ? request.session!.orgId : undefined);
+      if (!resolvedScopeId) {
+        return reply.status(400).send({
+          error: { code: "BAD_REQUEST", message: "scopeId is required for non-org scope types" },
+          meta: meta(request.id),
+        });
+      }
+
       const result = await memoryService.createMemory({
         orgId: request.session!.orgId,
         scopeType: body.data.scopeType,
-        scopeId: body.data.scopeId,
+        scopeId: resolvedScopeId,
         kind: body.data.kind,
         title: body.data.title,
-        summary: body.data.summary,
+        summary: body.data.summary || body.data.title,
         content: body.data.content,
         metadata: body.data.metadata,
         sourceRunId: body.data.sourceRunId,
