@@ -14,12 +14,15 @@ import {
   IconChevronRight,
 } from "@/components/icons";
 
+/* ── Types matching the API response from mission-control.service.ts ── */
+
 interface RunStep {
   id: string;
   type: string;
   toolName?: string;
   status: string;
   latencyMs?: number;
+  stepNumber: number;
   startedAt?: string;
   completedAt?: string;
   error?: string;
@@ -28,10 +31,14 @@ interface RunStep {
 interface BrowserSession {
   id: string;
   status: string;
+  browserType: string;
+  currentUrl: string | null;
+  humanTakeover: boolean;
   createdAt: string;
+  endedAt: string | null;
 }
 
-interface ToolUsageSummary {
+interface ToolUsageItem {
   toolName: string;
   count: number;
   totalLatencyMs: number;
@@ -42,24 +49,33 @@ interface MemoryUsageSummary {
   memoriesWritten: number;
 }
 
-interface RunData {
-  id: string;
-  agentId: string;
-  status: string;
-  tokenUsage?: { inputTokens: number; outputTokens: number; totalTokens: number } | null;
-  costCents?: number | null;
-  error?: { message: string } | null;
-  createdAt: string;
-  startedAt?: string | null;
-  completedAt?: string | null;
-}
-
 interface MCRunDetail {
-  run: RunData;
+  run: {
+    id: string;
+    agentId: string;
+    status: string;
+    tokenUsage?: { inputTokens: number; outputTokens: number; totalTokens: number };
+    costCents?: number;
+    error?: { message: string; code?: string };
+    createdAt: string;
+    startedAt?: string;
+    completedAt?: string;
+  };
   steps: RunStep[];
   browserSessions: BrowserSession[];
   toolUsage: ToolUsageSummary[];
   memoryUsage: MemoryUsageSummary;
+  timeline: RunStep[];
+  queueWaitMs: number | null;
+  durationMs: number | null;
+}
+
+interface RunDetailResponse {
+  run: Run;
+  steps: RunStep[];
+  browserSessions: BrowserSession[];
+  toolUsage: ToolUsageItem[];
+  memoryUsage: { memoriesRetrieved: number; memoriesWritten: number };
   timeline: RunStep[];
   queueWaitMs: number | null;
   durationMs: number | null;
@@ -170,7 +186,7 @@ export default function MCRunDetailPage() {
     setLoading(true);
     setError(null);
 
-    const result = await apiFetch<MCRunDetail>(
+    const result = await apiFetch<RunDetailResponse>(
       `/api/v1/mission-control/runs/${runId}`,
       { token },
     );
@@ -197,9 +213,7 @@ export default function MCRunDetailPage() {
     );
   }
 
-  const run = detail?.run;
-
-  if (!detail || !run) {
+  if (!detail) {
     return (
       <AppShell>
         <div className="empty-state">
@@ -218,6 +232,8 @@ export default function MCRunDetailPage() {
       </AppShell>
     );
   }
+
+  const run = detail.run;
 
   return (
     <AppShell>
@@ -266,7 +282,7 @@ export default function MCRunDetailPage() {
         <div className="page-header flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="page-title">
-              {run.agentId}
+              Run {run.id.slice(0, 8)}
             </h1>
             <p className="page-description">
               <code className="rounded bg-[rgb(var(--color-bg-tertiary))] px-1.5 py-0.5 text-xs text-[rgb(var(--color-text-secondary))]">
@@ -371,7 +387,7 @@ export default function MCRunDetailPage() {
               Error
             </p>
             <pre className="mt-2 whitespace-pre-wrap text-sm text-[rgb(var(--color-error)/0.8)]">
-              {run.error.message}
+              {typeof run.error === "string" ? run.error : run.error.message}
             </pre>
           </div>
         )}
@@ -466,7 +482,7 @@ export default function MCRunDetailPage() {
                         {session.id}
                       </p>
                       <p className="text-xs text-[rgb(var(--color-text-tertiary))]">
-                        {new Date(session.createdAt).toLocaleString()}
+                        {session.browserType} &middot; {new Date(session.createdAt).toLocaleString()}
                       </p>
                     </div>
                   </div>
@@ -519,7 +535,7 @@ export default function MCRunDetailPage() {
                         {tool.count}
                       </td>
                       <td className="px-4 py-3 text-right text-sm text-[rgb(var(--color-text-secondary))]">
-                        {tool.count > 0 ? formatDuration(tool.totalLatencyMs / tool.count) : "--"}
+                        {formatDuration(tool.count > 0 ? Math.round(tool.totalLatencyMs / tool.count) : 0)}
                       </td>
                     </tr>
                   ))}

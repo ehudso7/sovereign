@@ -418,7 +418,7 @@ export class PgRevenueService {
       const channel = input.channel ?? "email";
       const contactName = input.contactName ?? "there";
 
-      // Derive accountName from linked entity if not explicitly provided
+      // Derive accountName from input or from linked entity context
       let accountName = input.accountName ?? "";
       if (!accountName && input.linkedEntityType === "account" && input.linkedEntityId) {
         const account = await this.accountRepo.getById(input.linkedEntityId as CrmAccountId, orgId);
@@ -426,67 +426,44 @@ export class PgRevenueService {
       }
 
       // Generate draft content (deterministic for dev/CI, production would use AI runtime)
+      // The user-provided context is treated as instructions to shape the outreach tone,
+      // NOT pasted verbatim into the body.
       const subject = channel === "email"
         ? `Following up — ${accountName || "our conversation"}`
         : undefined;
 
-      // Use the context as a prompt to shape the email content rather than
-      // including it verbatim. The context is internal sales notes that should
-      // inform the tone and message, not be visible to the recipient.
-      let bodyContent: string;
-      if (contextParts.length > 0) {
-        // Analyze context to generate appropriate messaging
-        const contextStr = contextParts.join(". ");
-        const hasUrgency = /urgent|asap|immediately|deadline/i.test(contextStr);
-        const hasHesitation = /hesitant|on the edge|undecided|considering|thinking/i.test(contextStr);
-        const hasMeeting = /meet|call|schedule|demo|presentation/i.test(contextStr);
-        const hasFollowUp = /follow.?up|check.?in|touch base|reconnect/i.test(contextStr);
+      // Determine tone/urgency from context
+      const contextStr = contextParts.join(". ");
+      const isFollowUp = contextStr.length > 0;
+      const mentionsUrgency = /urgent|asap|quick|soon|deadline/i.test(contextStr);
+      const mentionsHesitation = /hesitant|on the edge|unsure|considering|fence/i.test(contextStr);
 
-        let opener = `Based on our recent interactions${accountName ? ` regarding ${accountName}` : ""}, I wanted to follow up.`;
-        let middle = "";
-        let closer = "Would you have time for a brief conversation this week?";
+      let openingLine: string;
+      let closingLine: string;
 
-        if (hasHesitation) {
-          opener = `I hope you're doing well. I've been thinking about our recent conversations${accountName ? ` regarding ${accountName}` : ""} and wanted to share a few thoughts that might be helpful.`;
-          middle = `I understand these decisions take careful consideration, and I want to make sure you have everything you need to feel confident moving forward. I'd be happy to address any remaining questions or concerns you might have.`;
-          closer = "Would you be available for a quick call this week? I'd love to help clarify anything that might be on your mind.";
-        } else if (hasUrgency) {
-          opener = `I'm reaching out because I wanted to make sure we stay aligned${accountName ? ` on the ${accountName} opportunity` : ""}.`;
-          middle = "There are some time-sensitive factors I'd like to discuss with you to ensure we're making the most of the current window.";
-          closer = "Could we connect soon? I have some availability this week that I'd like to prioritize for our conversation.";
-        } else if (hasMeeting) {
-          opener = `Thank you for your continued interest${accountName ? ` in ${accountName}` : ""}. I'd love to set up some time to dive deeper.`;
-          middle = "I've prepared some materials that I think will be really valuable for our next discussion.";
-          closer = "What does your schedule look like this week for a brief meeting?";
-        } else if (hasFollowUp) {
-          opener = `I wanted to circle back${accountName ? ` on our ${accountName} discussion` : ""} and see how things are progressing on your end.`;
-          middle = "Please don't hesitate to reach out if any new questions have come up since we last spoke.";
-        }
-
-        bodyContent = [
-          `Hi ${contactName},`,
-          "",
-          opener,
-          "",
-          middle,
-          "",
-          closer,
-          "",
-          "Best regards",
-        ].filter(line => line !== undefined && line !== "").join("\n");
+      if (mentionsHesitation) {
+        openingLine = `I've been thinking about our recent conversation${accountName ? ` regarding ${accountName}` : ""} and wanted to share a few additional thoughts that might be helpful.`;
+        closingLine = "I'd love to walk you through the details whenever works best for you — no pressure at all.";
+      } else if (mentionsUrgency) {
+        openingLine = `I wanted to quickly follow up${accountName ? ` on ${accountName}` : ""} as I know timing is important here.`;
+        closingLine = "Could we find a few minutes this week to finalize the details?";
+      } else if (isFollowUp) {
+        openingLine = `Based on our recent interactions${accountName ? ` regarding ${accountName}` : ""}, I wanted to follow up.`;
+        closingLine = "Would you have time for a brief conversation this week?";
       } else {
-        bodyContent = [
-          `Hi ${contactName},`,
-          "",
-          `I wanted to reach out and connect${accountName ? ` regarding ${accountName}` : ""}.`,
-          "",
-          "Would you have time for a brief conversation this week?",
-          "",
-          "Best regards",
-        ].join("\n");
+        openingLine = "I wanted to reach out and connect.";
+        closingLine = "Would you have time for a brief conversation this week?";
       }
 
-      const body = bodyContent;
+      const body = [
+        `Hi ${contactName},`,
+        "",
+        openingLine,
+        "",
+        closingLine,
+        "",
+        "Best regards",
+      ].join("\n");
 
       const draft = await this.draftRepo.create({
         orgId, linkedEntityType: input.linkedEntityType,

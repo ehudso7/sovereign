@@ -7,8 +7,10 @@ import { apiFetch } from "@/lib/api";
 import { AppShell } from "@/components/app-shell";
 import Link from "next/link";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default function CreateMemoryPage() {
-  const { user, token, isLoading } = useAuth();
+  const { user, org, token, isLoading } = useAuth();
   const router = useRouter();
 
   const [title, setTitle] = useState("");
@@ -24,29 +26,41 @@ export default function CreateMemoryPage() {
     if (!isLoading && !user) router.push("/auth/sign-in");
   }, [isLoading, user, router]);
 
+  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token || !title || !content) return;
 
-    if (scopeType !== "org" && !scopeId) {
-      setError("Scope ID is required for non-org scope types. Please provide a valid UUID.");
+    // Determine the effective scopeId - use org ID for org scope when not specified
+    const effectiveScopeId = scopeId || (scopeType === "org" ? org?.id : undefined);
+    if (!effectiveScopeId) {
+      setError("Scope ID is required for non-organization scopes.");
+      return;
+    }
+    if (!UUID_RE.test(effectiveScopeId)) {
+      setError("Scope ID must be a valid UUID.");
+      return;
+    }
+    if (!summary) {
+      setError("Summary is required.");
       return;
     }
 
     setSubmitting(true);
     setError(null);
 
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (scopeId && !uuidRegex.test(scopeId)) {
+      setError("Scope ID must be a valid UUID");
+      setSubmitting(false);
+      return;
+    }
+
     const result = await apiFetch<{ id: string }>("/api/v1/memories", {
       method: "POST",
       token,
-      body: JSON.stringify({
-        title,
-        summary: summary || undefined,
-        content,
-        kind,
-        scopeType,
-        scopeId: scopeId || undefined,
-      }),
+      body: JSON.stringify({ title, summary, content, kind, scopeType, scopeId: effectiveScopeId }),
     });
 
     if (result.ok) {
@@ -91,17 +105,20 @@ export default function CreateMemoryPage() {
               <option value="user">User</option>
             </select>
           </div>
-          {scopeType !== "org" && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Scope ID <span className="text-red-500">*</span>
-              </label>
-              <input type="text" value={scopeId} onChange={(e) => setScopeId(e.target.value)}
-                required
-                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
-                placeholder="UUID of the project, agent, or user" />
-            </div>
-          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Scope ID {scopeType === "org" ? "(auto-filled from your org)" : ""}
+            </label>
+            <input type="text" value={scopeId} onChange={(e) => setScopeId(e.target.value)}
+              className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
+              placeholder={scopeType === "org" ? (org?.id ?? "Org ID") : "UUID of scope target (e.g., project or agent ID)"}
+            />
+            {scopeType === "org" && !scopeId && org?.id && (
+              <p className="mt-1 text-xs text-gray-400">
+                Will use your org ID: {org.id}
+              </p>
+            )}
+          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">Title</label>
             <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required

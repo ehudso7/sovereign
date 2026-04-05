@@ -15,16 +15,18 @@ import {
 } from "@/components/icons";
 import Link from "next/link";
 
+interface RunCounts {
+  total: number;
+  completed: number;
+  failed: number;
+  running: number;
+  queued: number;
+  cancelled: number;
+  paused: number;
+}
+
 interface Overview {
-  runs: {
-    total: number;
-    completed: number;
-    failed: number;
-    running: number;
-    queued: number;
-    cancelled: number;
-    paused: number;
-  };
+  runs: RunCounts;
   avgQueueWaitMs: number | null;
   avgDurationMs: number | null;
   failureRate: number | null;
@@ -38,13 +40,14 @@ interface Overview {
     id: string;
     agentId: string;
     status: string;
-    error?: { message: string } | null;
+    error?: { message: string; code?: string };
     createdAt: string;
     completedAt?: string;
-  }>;
+  }[];
 }
 
-function formatMs(ms: number): string {
+function formatMs(ms: number | null | undefined): string {
+  if (ms == null) return "--";
   if (ms < 1000) return `${Math.round(ms)}ms`;
   if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
   return `${(ms / 60000).toFixed(1)}m`;
@@ -58,6 +61,7 @@ function statusForRunStatus(status: string): string {
     failed: "status-dot-error",
     cancelled: "status-dot-neutral",
     pending_approval: "status-dot-warning",
+    paused: "status-dot-warning",
   };
   return map[status] ?? "status-dot-neutral";
 }
@@ -108,6 +112,7 @@ export default function MissionControlPage() {
   const activeRuns = overview
     ? (overview.runs.running ?? 0) + (overview.runs.queued ?? 0)
     : 0;
+  const failureRate = overview?.failureRate ?? 0;
 
   return (
     <AppShell>
@@ -251,7 +256,7 @@ export default function MissionControlPage() {
                 <h2 className="section-title">Run Status Breakdown</h2>
               </div>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-6">
-                {Object.entries(overview.runs).filter(([k]) => k !== "total").map(([status, count]) => (
+                {(["running", "queued", "completed", "failed", "cancelled", "paused"] as const).map((status) => (
                   <div
                     key={status}
                     className="flex flex-col gap-1.5 rounded-lg bg-[rgb(var(--color-bg-secondary))] p-3"
@@ -263,7 +268,7 @@ export default function MissionControlPage() {
                       </span>
                     </div>
                     <span className="text-xl font-semibold text-[rgb(var(--color-text-primary))]">
-                      {count.toLocaleString()}
+                      {(overview.runs[status] ?? 0).toLocaleString()}
                     </span>
                   </div>
                 ))}
@@ -339,7 +344,7 @@ export default function MissionControlPage() {
               </div>
             </div>
 
-            {/* ── System Health + Recent Alerts ── */}
+            {/* ── System Health + Recent Failures ── */}
             <div className="grid gap-6 lg:grid-cols-2">
               {/* System Health Cards */}
               <div className="card">
@@ -425,7 +430,7 @@ export default function MissionControlPage() {
                 </div>
               </div>
 
-              {/* Recent Alerts / Failures */}
+              {/* Recent Failures */}
               <div className="card">
                 <div className="section-header mb-4">
                   <h2 className="section-title">Recent Failures</h2>
@@ -457,7 +462,7 @@ export default function MissionControlPage() {
                         <span className="status-dot-error mt-1.5 shrink-0" />
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-[rgb(var(--color-text-primary))] group-hover:text-[rgb(var(--color-error))] transition-colors">
-                            {f.id.slice(0, 12)}...
+                            {f.agentId ? f.agentId.slice(0, 12) + "..." : f.id.slice(0, 12) + "..."}
                           </p>
                           {f.error?.message && (
                             <p className="mt-0.5 truncate text-xs text-[rgb(var(--color-text-tertiary))]">
