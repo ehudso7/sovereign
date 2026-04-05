@@ -140,6 +140,7 @@ export function serializeCookie(
   name: string,
   value: string,
   options?: {
+    domain?: string;
     httpOnly?: boolean;
     maxAgeSeconds?: number;
     path?: string;
@@ -149,6 +150,10 @@ export function serializeCookie(
 ): string {
   const path = options?.path ?? "/";
   const parts = [`${name}=${encodeURIComponent(value)}`, `Path=${path}`];
+
+  if (options?.domain) {
+    parts.push(`Domain=${options.domain}`);
+  }
 
   if (options?.httpOnly !== false) {
     parts.push("HttpOnly");

@@ -31,17 +31,27 @@ function SignInContent() {
 
     const apiBase = getApiBaseUrl();
 
-    // Pre-flight check: verify the API is reachable before redirecting
+    // Pre-flight check: verify the API is reachable before redirecting.
+    // Use no-cors first so a CORS misconfiguration doesn't masquerade as a
+    // connectivity failure.  An opaque response (status 0, type "opaque")
+    // still proves the server is up; only a TypeError / timeout means it is
+    // genuinely unreachable.
     try {
-      await fetch(`${apiBase}/api/v1/health`, {
-        mode: "cors",
+      const res = await fetch(`${apiBase}/api/v1/health`, {
+        mode: "no-cors",
         signal: AbortSignal.timeout(5000),
       });
+
+      // If we got a real (non-opaque) response with an error status, the
+      // server is up but something is wrong — still let the redirect happen
+      // so the API can surface its own error page / JSON.
+      void res;
     } catch {
       setIsLoading(false);
       setError(
         `Unable to reach the authentication service at ${apiBase}. ` +
-        "Please verify the API server is running and accessible.",
+        "Please verify the API server is running, the domain has correct DNS records, " +
+        "and CORS_ALLOWED_ORIGINS includes this site's origin.",
       );
       return;
     }
