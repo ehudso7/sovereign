@@ -5,6 +5,16 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { parseAuthCallbackPayload } from "@/lib/auth-callback";
 
+/** Sanitise raw backend error messages so users never see SQL / stack traces. */
+function friendlyError(raw: string): string {
+  if (raw.includes("does not exist") && raw.includes("relation")) {
+    return "The database is not fully migrated. Please contact your administrator to run pending migrations.";
+  }
+
+  // Already a user-friendly message from our backend
+  return raw;
+}
+
 function CallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -18,7 +28,7 @@ function CallbackContent() {
     );
 
     if (callbackError) {
-      setError(callbackError);
+      setError(friendlyError(callbackError));
       return;
     }
 
