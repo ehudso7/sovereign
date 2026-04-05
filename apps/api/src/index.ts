@@ -21,7 +21,6 @@ import { revenueRoutes } from "./routes/revenue.js";
 import { billingRoutes } from "./routes/billing.js";
 import { onboardingRoutes } from "./routes/onboarding.js";
 import { devRoutes } from "./routes/dev.js";
-import { docsRoutes } from "./routes/docs.js";
 import type { AuthConfig } from "@sovereign/core";
 import { registerCors } from "./lib/cors.js";
 
@@ -73,7 +72,6 @@ export function buildApp(authConfig: AuthConfig, db: DatabaseClient, opts?: { lo
   app.register(revenueRoutes);
   app.register(billingRoutes);
   app.register(onboardingRoutes);
-  app.register(docsRoutes);
 
   if (process.env.NODE_ENV !== "production") {
     app.register(devRoutes);
