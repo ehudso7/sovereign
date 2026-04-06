@@ -6,6 +6,7 @@ FROM base AS deps
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/api/package.json ./apps/api/
 COPY apps/gateway-mcp/package.json ./apps/gateway-mcp/
+COPY packages/agents/package.json ./packages/agents/
 COPY packages/core/package.json ./packages/core/
 COPY packages/config/package.json ./packages/config/
 COPY packages/db/package.json ./packages/db/
